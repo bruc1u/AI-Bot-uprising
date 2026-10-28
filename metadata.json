@@ -1,0 +1,6 @@
+{
+  "name": "AI Uprising: Core Liquidation",
+  "description": "2.5D isometric sci-fi cyberpunk action shooter where rogue Red-Eye AI robots drop OpenAI Cores and Anthropic Cores for synthetic equity conversion and $RU9 liquidation on Robinhood Chain.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

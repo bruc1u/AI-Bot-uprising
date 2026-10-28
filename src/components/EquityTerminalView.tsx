@@ -64,7 +64,7 @@ export const EquityTerminalView: React.FC<EquityTerminalViewProps> = ({
           <div className="flex items-center gap-2.5">
             <ItemPreviewArt kind="ru9" className="w-8 h-8" />
             <div>
-              <div className="text-xs text-zinc-400">$RU9 (1M Auto-Refresh)</div>
+              <div className="text-xs text-zinc-400">$RU9</div>
               <div className="text-lg font-semibold text-amber-400">
                 {Math.round(portfolio.ru9).toLocaleString()}
               </div>

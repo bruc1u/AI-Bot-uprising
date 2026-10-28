@@ -13,6 +13,13 @@ import {
   getEldritchCombatAnchors,
   isEldritchEnemyKind,
 } from './eldritchSprites';
+import {
+  drawMechChimeraEnemy25D,
+  getMechChimeraCombatAnchors,
+  isEliteEnemyKind,
+  isMechaOrChimeraKind,
+  isWorldBossKind,
+} from './mechChimeraSprites';
 
 export {
   drawIsometricArenaFloor,
@@ -173,6 +180,9 @@ export function getEnemyCombatAnchorsWorld(e: RenderEnemyData): {
 } {
   if (isEldritchEnemyKind(e.kind)) {
     return getEldritchCombatAnchors(e.x, e.y, e.kind, e.facingAngle);
+  }
+  if (isMechaOrChimeraKind(e.kind)) {
+    return getMechChimeraCombatAnchors(e.x, e.y, e.kind, e.facingAngle);
   }
 
   const targetH = getEnemyTargetHeight(e.kind);
@@ -964,6 +974,9 @@ export function drawEnemySprite25D(
     ? -Math.abs(Math.cos(walkPhase)) * 3.0
     : Math.sin(timeSec * 3.5 + x * 0.04) * -1.1;
   const isEldritch = isEldritchEnemyKind(kind);
+  const isMechChimera = isMechaOrChimeraKind(kind);
+  const isBoss = isWorldBossKind(kind);
+  const isElite = isEliteEnemyKind(kind);
   const isWildDog = kind === EnemyKind.WILD_SCOUT_DOG;
   const isWildCat = kind === EnemyKind.WILD_CYBER_CAT;
   const facingRight = Math.cos(facingAngle) >= 0;
@@ -971,22 +984,43 @@ export function drawEnemySprite25D(
   ctx.save();
   ctx.translate(snap(x), snap(y));
 
-  const shadowRx =
-    kind === EnemyKind.CTHULHU_LEVIATHAN_PRIME
-      ? 36
-      : kind === EnemyKind.SHOGGOTH_CORE_AMALGAM
-      ? 32
-      : isWildDog || isWildCat
-      ? 18
-      : 24;
-  ctx.fillStyle = isEldritch ? 'rgba(46, 16, 101, 0.55)' : 'rgba(9, 13, 22, 0.48)';
+  const shadowRx = isBoss
+    ? 44
+    : kind === EnemyKind.MECH_SPIDER_ARACHNID || kind === EnemyKind.MUTATED_EXCAVATOR_BEHEMOTH
+    ? 36
+    : isElite
+    ? 32
+    : isWildDog || isWildCat
+    ? 18
+    : 24;
+  ctx.fillStyle = isEldritch
+    ? 'rgba(46, 16, 101, 0.55)'
+    : isBoss
+    ? 'rgba(124, 45, 18, 0.55)'
+    : 'rgba(9, 13, 22, 0.48)';
   ctx.beginPath();
   ctx.ellipse(0, 9, shadowRx, shadowRx * 0.44, 0, 0, Math.PI * 2);
   ctx.fill();
 
   let topBarAnchorY = -80;
 
-  if (isEldritch) {
+  if (isMechChimera) {
+    ctx.save();
+    ctx.translate(0, bob);
+    const hPx = drawMechChimeraEnemy25D(
+      ctx,
+      kind,
+      facingRight,
+      hitFlash > 0,
+      eyeChargeTimer > 0 || berserk,
+      e.meleeSwingTimer,
+      facingAngle,
+      walkPhase,
+      timeSec
+    );
+    topBarAnchorY = -hPx - 6;
+    ctx.restore();
+  } else if (isEldritch) {
     ctx.save();
     ctx.translate(0, bob);
     const hPx = drawEldritchEnemyBody25D(
@@ -1076,10 +1110,10 @@ export function drawEnemySprite25D(
     ctx.fillRect(-23, topBarAnchorY - 11, 46 * Math.min(1, 1 - captureTimer / 1.05), 4);
   } else if (isWildDog || isWildCat) {
     const chancePct = Math.min(95, Math.round((0.5 + (1 - hp / maxHp) * 0.45) * 100));
-    const label = speciesOwned ? 'MAX 1 OWNED' : `[G] ORB · ${chancePct}%`;
+    const label = speciesOwned ? 'TAMED' : `[G] ORB · ${chancePct}%`;
     ctx.font = '800 9.5px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
-    const boxW = speciesOwned ? 78 : 94;
+    const boxW = speciesOwned ? 56 : 94;
     ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
     ctx.fillRect(-boxW / 2, -56 + bob, boxW, 13);
     ctx.strokeStyle = speciesOwned ? '#64748b' : '#00e5ff';
@@ -1087,6 +1121,18 @@ export function drawEnemySprite25D(
     ctx.strokeRect(-boxW / 2, -56 + bob, boxW, 13);
     ctx.fillStyle = speciesOwned ? '#cbd5e1' : '#d9ff00';
     ctx.fillText(label, 0, -46.5 + bob);
+  } else if (isBoss || isElite) {
+    const badge = isBoss ? 'BOSS' : 'ELITE';
+    ctx.font = '800 9px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    const bw = isBoss ? 40 : 42;
+    ctx.fillStyle = 'rgba(9, 13, 22, 0.92)';
+    ctx.fillRect(-bw / 2, topBarAnchorY - 16, bw, 12);
+    ctx.strokeStyle = isBoss ? '#f97316' : '#eab308';
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(-bw / 2, topBarAnchorY - 16, bw, 12);
+    ctx.fillStyle = isBoss ? '#fb923c' : '#fde047';
+    ctx.fillText(badge, 0, topBarAnchorY - 7);
   }
 
   if (markedByDog) {
@@ -1121,16 +1167,22 @@ export function drawEnemySprite25D(
     ctx.restore();
   }
 
-  const barW =
-    kind === EnemyKind.CTHULHU_LEVIATHAN_PRIME
-      ? 64
-      : kind === EnemyKind.LOGIC_WEAVER_ELITE || kind === EnemyKind.SHOGGOTH_CORE_AMALGAM
-      ? 50
-      : 38;
+  const barW = isBoss ? 76 : isElite || isMechChimera ? 54 : 38;
   ctx.fillStyle = 'rgba(9, 13, 22, 0.92)';
-  ctx.fillRect(-barW / 2, topBarAnchorY, barW, 5);
-  ctx.fillStyle = syncResistant ? '#f59e0b' : isEldritch ? '#c026d3' : '#f43f5e';
-  ctx.fillRect(-barW / 2 + 1, topBarAnchorY + 1, Math.max(0, (barW - 2) * (hp / maxHp)), 3);
+  ctx.fillRect(-barW / 2, topBarAnchorY, barW, isBoss ? 6 : 5);
+  ctx.fillStyle = syncResistant
+    ? '#f59e0b'
+    : isBoss
+    ? '#f97316'
+    : isEldritch
+    ? '#c026d3'
+    : '#f43f5e';
+  ctx.fillRect(
+    -barW / 2 + 1,
+    topBarAnchorY + 1,
+    Math.max(0, (barW - 2) * (hp / maxHp)),
+    isBoss ? 4 : 3
+  );
 
   if (maxArmor > 0 && armor > 0) {
     ctx.fillStyle = '#00e5ff';
@@ -1338,14 +1390,14 @@ export function drawCompanionSprite25D(
   ctx.restore();
 
   ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-  ctx.fillRect(-19, -51 + bob, 38, 12);
+  ctx.fillRect(-18, -51 + bob, 36, 12);
   ctx.strokeStyle = '#00e5ff';
   ctx.lineWidth = 1.2;
-  ctx.strokeRect(-19, -51 + bob, 38, 12);
+  ctx.strokeRect(-18, -51 + bob, 36, 12);
   ctx.fillStyle = '#38bdf8';
   ctx.font = '800 8px "JetBrains Mono", monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('ALLY', 0, -42.5 + bob);
+  ctx.fillText('PET', 0, -42.5 + bob);
 
   ctx.restore();
 }

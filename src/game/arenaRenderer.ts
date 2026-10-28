@@ -1,6 +1,7 @@
 import { ASSET_URLS, requestRawImage } from './assetLoader';
 import {
   ContinentLandmarkVariant,
+  MECHA_WASTELAND_DIVIDE_X,
   OUTDOOR_DIVIDE_X,
   ObstacleBlock,
   PLAYER_SPAWN_X,
@@ -18,30 +19,53 @@ const OUTDOOR_ABYSS_EYES = [
   { x: 3560, y: 680, r: 28 },
   { x: 4220, y: 940, r: 24 },
   { x: 3040, y: 1620, r: 26 },
-  { x: 3780, y: 1780, r: 32 },
-  { x: 4320, y: 2140, r: 25 },
-  { x: 3340, y: 2740, r: 28 },
-  { x: 4040, y: 2920, r: 24 },
+  { x: 3780, y: 1940, r: 32 },
+  { x: 4380, y: 2320, r: 25 },
+  { x: 3280, y: 3040, r: 28 },
+  { x: 4080, y: 3260, r: 24 },
+  { x: 3560, y: 3980, r: 30 },
+  { x: 4320, y: 4240, r: 25 },
+];
+
+const MECHA_SLAG_CRATERS = [
+  { x: 4980, y: 920, r: 64 },
+  { x: 5640, y: 840, r: 78 },
+  { x: 6420, y: 1020, r: 72 },
+  { x: 5520, y: 1860, r: 88 },
+  { x: 6360, y: 1980, r: 74 },
+  { x: 5460, y: 2920, r: 82 },
+  { x: 6840, y: 3060, r: 76 },
+  { x: 5680, y: 3860, r: 84 },
+  { x: 6520, y: 4160, r: 70 },
 ];
 
 const DOORWAY_THRESHOLDS = [
-  // Indoor room blast doorways
-  { x: 360, y: 956, w: 300, h: 48, color: '#00f5d4', vertical: false },
-  { x: 1220, y: 956, w: 340, h: 48, color: '#10a37f', vertical: false },
-  { x: 2080, y: 956, w: 340, h: 48, color: '#eab308', vertical: false },
-  { x: 1756, y: 410, w: 48, h: 300, color: '#eab308', vertical: true },
-  { x: 896, y: 1420, w: 48, h: 360, color: '#00f5d4', vertical: true },
-  { x: 360, y: 2196, w: 300, h: 48, color: '#38bdf8', vertical: false },
-  { x: 1600, y: 2196, w: 380, h: 48, color: '#38bdf8', vertical: false },
-  // 3 Breached Quarantine Blast Gates to Outdoor Cthulhu Wastes
-  { x: 2648, y: 400, w: 68, h: 360, color: '#ff1744', vertical: true },
-  { x: 2648, y: 1400, w: 68, h: 440, color: '#ff1744', vertical: true },
-  { x: 2648, y: 2480, w: 68, h: 360, color: '#ff1744', vertical: true },
+  // Row A <-> Row B doorways (y = 1104)
+  { x: 360, y: 1096, w: 320, h: 48, color: '#00f5d4' },
+  { x: 1220, y: 1096, w: 360, h: 48, color: '#10a37f' },
+  { x: 2080, y: 1096, w: 360, h: 48, color: '#eab308' },
+  // Server Vault <-> Foundry (x = 1764)
+  { x: 1756, y: 440, w: 48, h: 340, color: '#eab308' },
+  // Cryo Lab <-> Command Hub (x = 904)
+  { x: 896, y: 1640, w: 48, h: 400, color: '#00f5d4' },
+  // Row B <-> Ordnance Hangar (y = 2544)
+  { x: 360, y: 2536, w: 320, h: 48, color: '#38bdf8' },
+  { x: 1560, y: 2536, w: 420, h: 48, color: '#38bdf8' },
+  // Ordnance Hangar <-> Chimera Splicing Lab (y = 3524)
+  { x: 520, y: 3516, w: 380, h: 48, color: '#f43f5e' },
+  { x: 1660, y: 3516, w: 420, h: 48, color: '#f43f5e' },
+  // 4 Breached Quarantine Blast Gates to Outdoor Open World (x = 2662)
+  { x: 2648, y: 420, w: 68, h: 360, color: '#ff1744' },
+  { x: 2648, y: 1620, w: 68, h: 460, color: '#ff1744' },
+  { x: 2648, y: 2860, w: 68, h: 380, color: '#ff1744' },
+  { x: 2648, y: 3860, w: 68, h: 380, color: '#ff1744' },
 ];
 
 /**
- * Renders both the 5 Thematic Indoor Sci-Fi Rooms (left of OUTDOOR_DIVIDE_X) AND
- * the terrifying Cthulhu-Mutated Outdoor Wasteland (right of OUTDOOR_DIVIDE_X).
+ * Renders the 7200x4600 Multi-Biome World:
+ * 1. West (0..2680): 6 Interconnected Sci-Fi Facility Chambers
+ * 2. Central-East (2680..4680): Cthulhu Bio-Cyber Forbidden Wastes
+ * 3. Far-East Open World (4680..7200): Mutated Giant Mecha Wasteland & Titan Graveyard
  */
 export function drawIsometricArenaFloor(
   ctx: CanvasRenderingContext2D,
@@ -63,7 +87,7 @@ export function drawIsometricArenaFloor(
   const wallPadTop = 88;
   const wallPadBot = 68;
 
-  // 1. INDOOR FACILITY SUBSTRATE (x: 0 .. OUTDOOR_DIVIDE_X)
+  // 1. INDOOR FACILITY SUBSTRATE
   if (camX < OUTDOOR_DIVIDE_X + 40) {
     const indoorGrad = ctx.createLinearGradient(0, 0, 0, worldH);
     indoorGrad.addColorStop(0, '#1e293b');
@@ -73,17 +97,27 @@ export function drawIsometricArenaFloor(
     ctx.fillRect(0, 0, OUTDOOR_DIVIDE_X, worldH);
   }
 
-  // 2. OUTDOOR CTHULHU-AI WASTELAND SUBSTRATE (x: OUTDOOR_DIVIDE_X .. worldW)
-  if (camX + viewW > OUTDOOR_DIVIDE_X - 40) {
-    const outGrad = ctx.createLinearGradient(OUTDOOR_DIVIDE_X, 0, worldW, worldH);
+  // 2. CTHULHU BIO-CYBER ABYSS SUBSTRATE
+  if (camX + viewW > OUTDOOR_DIVIDE_X - 40 && camX < MECHA_WASTELAND_DIVIDE_X + 40) {
+    const outGrad = ctx.createLinearGradient(OUTDOOR_DIVIDE_X, 0, MECHA_WASTELAND_DIVIDE_X, worldH);
     outGrad.addColorStop(0, '#180c1e');
-    outGrad.addColorStop(0.45, '#13091a');
-    outGrad.addColorStop(1, '#0b0511');
+    outGrad.addColorStop(0.5, '#13091a');
+    outGrad.addColorStop(1, '#1a0c20');
     ctx.fillStyle = outGrad;
-    ctx.fillRect(OUTDOOR_DIVIDE_X, 0, worldW - OUTDOOR_DIVIDE_X, worldH);
+    ctx.fillRect(OUTDOOR_DIVIDE_X, 0, MECHA_WASTELAND_DIVIDE_X - OUTDOOR_DIVIDE_X, worldH);
   }
 
-  // 3. TILE RENDERING (Frustum-culled for 60fps across 4600x3200 world)
+  // 3. OPEN-WORLD TITAN MECHA WASTELAND SUBSTRATE
+  if (camX + viewW > MECHA_WASTELAND_DIVIDE_X - 40) {
+    const mechGrad = ctx.createLinearGradient(MECHA_WASTELAND_DIVIDE_X, 0, worldW, worldH);
+    mechGrad.addColorStop(0, '#1d1917');
+    mechGrad.addColorStop(0.5, '#241e1a');
+    mechGrad.addColorStop(1, '#181412');
+    ctx.fillStyle = mechGrad;
+    ctx.fillRect(MECHA_WASTELAND_DIVIDE_X, 0, worldW - MECHA_WASTELAND_DIVIDE_X, worldH);
+  }
+
+  // 4. FRUSTUM-CULLED TILE RENDERING (60fps across 7200x4600)
   const tileW = 160;
   const tileH = 120;
   const startCol = Math.max(0, Math.floor((camX - tileW) / tileW));
@@ -96,31 +130,32 @@ export function drawIsometricArenaFloor(
     for (let c = startCol; c < endCol; c++) {
       const tx = c * tileW;
       const alt = (r + c) % 2 === 0;
+      const centerTx = tx + tileW * 0.5;
 
-      if (tx + tileW * 0.5 < OUTDOOR_DIVIDE_X) {
-        // Determine room-specific metallic tint
+      if (centerTx < OUTDOOR_DIVIDE_X) {
         let fillA = '#293548';
         let fillB = '#243042';
         let trim = 'rgba(148, 163, 184, 0.16)';
-        if (ty < 980 && tx < 1780) {
-          // OpenAI Neural Server Vault (Deep Emerald-Slate)
+        if (ty < 1120 && tx < 1780) {
           fillA = '#1d2d3a';
           fillB = '#192733';
           trim = 'rgba(16, 163, 127, 0.22)';
-        } else if (ty < 980 && tx >= 1780) {
-          // Anthropic Robotics Foundry (Industrial Gunmetal-Bronze)
+        } else if (ty < 1120 && tx >= 1780) {
           fillA = '#2c2f3b';
           fillB = '#252834';
           trim = 'rgba(234, 179, 8, 0.2)';
-        } else if (ty >= 980 && ty < 2220 && tx < 920) {
-          // Bio-Cryo Lab (Sterile Cryo-Teal Steel)
+        } else if (ty >= 1120 && ty < 2560 && tx < 920) {
           fillA = '#1e3340';
           fillB = '#192b36';
           trim = 'rgba(0, 245, 212, 0.22)';
-        } else if (ty >= 2220) {
-          // Heavy Ordnance Hangar
+        } else if (ty >= 2560 && ty < 3540) {
           fillA = '#252f3f';
           fillB = '#202938';
+        } else if (ty >= 3540) {
+          // South Chimera Splicing Lab (Rose-Slate Hybrid Floor)
+          fillA = '#2b2234';
+          fillB = '#241c2c';
+          trim = 'rgba(244, 63, 94, 0.22)';
         }
 
         ctx.fillStyle = '#111824';
@@ -133,12 +168,11 @@ export function drawIsometricArenaFloor(
         ctx.fillStyle = '#475569';
         ctx.fillRect(tx + 8, ty + 8, 3, 3);
         ctx.fillRect(tx + tileW - 11, ty + tileH - 11, 3, 3);
-      } else {
-        // OUTDOOR ELDRITCH SCORCHED CRATER & BIO-CHITIN WASTELAND TILES
+      } else if (centerTx < MECHA_WASTELAND_DIVIDE_X) {
+        // CTHULHU BIO-CYBER ABYSS TILES
         ctx.fillStyle = alt ? '#170b1f' : '#13081a';
         ctx.fillRect(tx, ty, tileW, tileH);
 
-        // Cracked obsidian & abyssal crimson-violet vein fractures
         const seed = (r * 31 + c * 17) % 7;
         ctx.strokeStyle =
           seed % 2 === 0 ? 'rgba(192, 38, 211, 0.24)' : 'rgba(255, 23, 68, 0.22)';
@@ -155,14 +189,42 @@ export function drawIsometricArenaFloor(
           ctx.ellipse(tx + 80, ty + 62, 38, 20, 0.2, 0, Math.PI * 2);
           ctx.fill();
         }
+      } else {
+        // OPEN-WORLD MUTATED MECHA WASTELAND TILES (Scorched Ferro-Plates, Tank Treads & Molten Slag)
+        ctx.fillStyle = alt ? '#231f1d' : '#1e1a18';
+        ctx.fillRect(tx, ty, tileW, tileH);
+
+        // Industrial rusted steel plate seams
+        ctx.strokeStyle = 'rgba(251, 146, 60, 0.14)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(tx + 4, ty + 4, tileW - 8, tileH - 8);
+
+        const seed = (r * 19 + c * 23) % 9;
+        if (seed === 0 || seed === 4) {
+          // Giant Colossal Mech Tank-Tread Imprints etched into the wasteland
+          ctx.fillStyle = 'rgba(12, 10, 9, 0.55)';
+          for (let k = 0; k < 4; k++) {
+            ctx.fillRect(tx + 18 + k * 34, ty + 28, 20, 12);
+            ctx.fillRect(tx + 18 + k * 34, ty + 76, 20, 12);
+          }
+        } else if (seed === 2 || seed === 7) {
+          // Glowing molten furnace-slag cracks
+          ctx.strokeStyle = 'rgba(249, 115, 22, 0.42)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(tx + 20, ty + 18);
+          ctx.lineTo(tx + 82, ty + 64);
+          ctx.lineTo(tx + 144, ty + 48);
+          ctx.stroke();
+        }
       }
     }
   }
 
-  // 4. INDOOR ROOM FLOOR STENCILS & LED CONDUITS
+  // 5. INDOOR ROOM FLOOR STENCILS & LED CONDUITS
   const pulse = 0.58 + 0.22 * Math.sin(timeSec * 3.0);
   if (camX < OUTDOOR_DIVIDE_X + 60) {
-    const hConduits = [520, 1360, 1860, 2680];
+    const hConduits = [580, 1520, 2120, 3040, 4040];
     for (const hy of hConduits) {
       if (hy > camY - 30 && hy < camY + viewH + 30) {
         ctx.fillStyle = '#0d1522';
@@ -176,14 +238,14 @@ export function drawIsometricArenaFloor(
       }
     }
 
-    // Room Floor Stencil Labels
     ctx.font = '800 12px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
     const stencils = [
-      { x: 920, y: 840, text: 'SECTOR-A1 // OPENAI NEURAL SERVER VAULT', c: 'rgba(16, 185, 129, 0.45)' },
-      { x: 2220, y: 840, text: 'SECTOR-A2 // ANTHROPIC ROBOTICS FOUNDRY', c: 'rgba(234, 179, 8, 0.45)' },
-      { x: 480, y: 1580, text: 'SECTOR-B1 // BIO-CRYO LAB', c: 'rgba(0, 245, 212, 0.45)' },
-      { x: 1380, y: 2440, text: 'SECTOR-C1 // HEAVY ORDNANCE & SMELTER HANGAR', c: 'rgba(56, 189, 248, 0.45)' },
+      { x: 920, y: 980, text: 'SECTOR-A1 · OPENAI NEURAL VAULT', c: 'rgba(16, 185, 129, 0.45)' },
+      { x: 2220, y: 980, text: 'SECTOR-A2 · ANTHROPIC FOUNDRY', c: 'rgba(234, 179, 8, 0.45)' },
+      { x: 480, y: 1840, text: 'SECTOR-B1 · BIO-CRYO CONTAINMENT', c: 'rgba(0, 245, 212, 0.45)' },
+      { x: 1380, y: 2740, text: 'SECTOR-C1 · HEAVY ORDNANCE HANGAR', c: 'rgba(56, 189, 248, 0.45)' },
+      { x: 1380, y: 3740, text: 'SECTOR-D1 · CHIMERA SPLICING REACTOR', c: 'rgba(244, 63, 94, 0.48)' },
     ];
     for (const st of stencils) {
       if (st.x > camX - 280 && st.x < camX + viewW + 280 && st.y > camY - 60 && st.y < camY + viewH + 60) {
@@ -193,7 +255,7 @@ export function drawIsometricArenaFloor(
     }
   }
 
-  // 5. CENTRAL QUANTUM COMMAND HUB REACTOR PAD
+  // 6. CENTRAL QUANTUM COMMAND HUB REACTOR PAD
   const cx = PLAYER_SPAWN_X;
   const cy = PLAYER_SPAWN_Y - 120;
   if (cx > camX - 360 && cx < camX + viewW + 360 && cy > camY - 260 && cy < camY + viewH + 260) {
@@ -226,11 +288,11 @@ export function drawIsometricArenaFloor(
     ctx.fillStyle = '#94a3b8';
     ctx.font = '700 10px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('SECTOR-00 QUANTUM COMMAND · EAST GATE -> OUTDOORS', 0, 52);
+    ctx.fillText('SECTOR-00 QUANTUM COMMAND · EAST GATES -> OPEN WORLD', 0, 52);
     ctx.restore();
   }
 
-  // 6. GLOWING BLAST DOORWAY THRESHOLD PADS
+  // 7. GLOWING BLAST DOORWAY THRESHOLD PADS
   for (const dt of DOORWAY_THRESHOLDS) {
     if (
       dt.x + dt.w > camX &&
@@ -248,22 +310,20 @@ export function drawIsometricArenaFloor(
     }
   }
 
-  // 7. OUTDOOR CTHULHU BIOMECHANICAL GROUND TENTACLES & BLINKING ABYSSAL EYES
-  if (camX + viewW > OUTDOOR_DIVIDE_X - 80) {
-    // Quarantine Breach Warning Stencil just outside the 3 Blast Gates
+  // 8. CTHULHU BIO-CYBER ABYSS GROUND TENTACLES & ABYSSAL EYES
+  if (camX + viewW > OUTDOOR_DIVIDE_X - 80 && camX < MECHA_WASTELAND_DIVIDE_X + 120) {
     ctx.fillStyle = 'rgba(255, 23, 68, 0.68)';
     ctx.font = '800 12px "JetBrains Mono", monospace';
     ctx.textAlign = 'left';
-    for (const gy of [580, 1620, 2660]) {
+    for (const gy of [600, 1850, 3050, 4050]) {
       if (gy > camY - 60 && gy < camY + viewH + 60) {
-        ctx.fillText('WARNING // OUTDOOR CTHULHU-AI MUTATION ZONE', OUTDOOR_DIVIDE_X + 54, gy);
+        ctx.fillText('DANGER · CTHULHU BIO-CYBER ABYSS -> EAST: MECHA WASTELAND', OUTDOOR_DIVIDE_X + 54, gy);
       }
     }
 
-    // Writhing Biomechanical Flesh-Optic Tentacles snaking across the Outdoor Wasteland
-    for (let ti = 0; ti < 12; ti++) {
-      const baseX = OUTDOOR_DIVIDE_X + 180 + (ti % 4) * 430;
-      const baseY = 280 + Math.floor(ti / 4) * 980 + (ti % 2) * 160;
+    for (let ti = 0; ti < 16; ti++) {
+      const baseX = OUTDOOR_DIVIDE_X + 200 + (ti % 4) * 440;
+      const baseY = 300 + Math.floor(ti / 4) * 1060 + (ti % 2) * 180;
       if (
         baseX + 240 < camX ||
         baseX - 240 > camX + viewW ||
@@ -297,7 +357,6 @@ export function drawIsometricArenaFloor(
       ctx.restore();
     }
 
-    // Blinking Eldritch Abyssal Ground Eyes in Craters
     for (let i = 0; i < OUTDOOR_ABYSS_EYES.length; i++) {
       const ge = OUTDOOR_ABYSS_EYES[i];
       if (
@@ -313,7 +372,6 @@ export function drawIsometricArenaFloor(
 
       ctx.save();
       ctx.translate(ge.x, ge.y);
-      // Fleshy dark socket rim
       ctx.fillStyle = '#240a2e';
       ctx.strokeStyle = '#7e22ce';
       ctx.lineWidth = 2;
@@ -322,7 +380,6 @@ export function drawIsometricArenaFloor(
       ctx.fill();
       ctx.stroke();
 
-      // Glowing crimson sclera + slit Cthulhu pupil
       ctx.fillStyle = '#ff1744';
       ctx.beginPath();
       ctx.ellipse(0, 0, ge.r, openH, 0, 0, Math.PI * 2);
@@ -342,29 +399,78 @@ export function drawIsometricArenaFloor(
     }
   }
 
-  // 8. OUTER WORLD PERIMETER WALLS & CRAGGY ABYSSAL BORDER
+  // 9. OPEN-WORLD TITAN MECHA WASTELAND FRONTIER DETAILS (x >= 4680)
+  if (camX + viewW > MECHA_WASTELAND_DIVIDE_X - 80) {
+    // Open-World Frontier Hazard Line
+    if (MECHA_WASTELAND_DIVIDE_X > camX - 40 && MECHA_WASTELAND_DIVIDE_X < camX + viewW + 40) {
+      ctx.strokeStyle = 'rgba(249, 115, 22, 0.55)';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([16, 12]);
+      ctx.beginPath();
+      ctx.moveTo(MECHA_WASTELAND_DIVIDE_X, wallPadTop);
+      ctx.lineTo(MECHA_WASTELAND_DIVIDE_X, worldH - wallPadBot);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    ctx.fillStyle = 'rgba(251, 146, 60, 0.72)';
+    ctx.font = '800 12px "JetBrains Mono", monospace';
+    ctx.textAlign = 'left';
+    for (const wy of [740, 1880, 3120, 4120]) {
+      if (wy > camY - 60 && wy < camY + viewH + 60) {
+        ctx.fillText('OPEN WORLD · MUTATED TITAN MECHA WASTELAND', MECHA_WASTELAND_DIVIDE_X + 38, wy);
+      }
+    }
+
+    // Glowing Molten Plasma & Oil Slag Craters
+    for (let i = 0; i < MECHA_SLAG_CRATERS.length; i++) {
+      const sc = MECHA_SLAG_CRATERS[i];
+      if (
+        sc.x + sc.r * 1.4 < camX ||
+        sc.x - sc.r * 1.4 > camX + viewW ||
+        sc.y + sc.r < camY ||
+        sc.y - sc.r > camY + viewH
+      ) {
+        continue;
+      }
+      const glow = 0.65 + 0.3 * Math.sin(timeSec * 2.6 + i * 1.5);
+      ctx.save();
+      ctx.translate(sc.x, sc.y);
+      ctx.fillStyle = '#0c0a09';
+      ctx.strokeStyle = '#7c2d12';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, sc.r * 1.15, sc.r * 0.62, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      const lava = ctx.createRadialGradient(0, 0, 4, 0, 0, sc.r * 0.85);
+      lava.addColorStop(0, `rgba(254, 240, 138, ${(0.8 * glow).toFixed(2)})`);
+      lava.addColorStop(0.45, `rgba(249, 115, 22, ${(0.65 * glow).toFixed(2)})`);
+      lava.addColorStop(1, 'rgba(153, 27, 27, 0)');
+      ctx.fillStyle = lava;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, sc.r * 0.9, sc.r * 0.48, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // 10. OUTER WORLD PERIMETER BORDERS
   if (camY < wallPadTop + 30) {
-    // Indoor Top Armored Wall
     if (camX < OUTDOOR_DIVIDE_X) {
       ctx.fillStyle = '#334155';
       ctx.fillRect(0, 0, OUTDOOR_DIVIDE_X, wallPadTop);
       ctx.strokeStyle = '#0f172a';
       ctx.lineWidth = 3;
       ctx.strokeRect(0, 0, OUTDOOR_DIVIDE_X, wallPadTop);
-      for (let bx = 140; bx < OUTDOOR_DIVIDE_X - 60; bx += 240) {
-        if (bx > camX - 180 && bx < camX + viewW + 180) {
-          ctx.fillStyle = '#475569';
-          ctx.fillRect(bx - 14, 4, 28, wallPadTop - 8);
-          ctx.fillStyle = '#67e8f9';
-          ctx.fillRect(bx + 44, 18, 92, 5);
-        }
-      }
     }
-    // Outdoor Top Jagged Eldritch Ridge
     if (camX + viewW > OUTDOOR_DIVIDE_X) {
       ctx.fillStyle = '#1f0b29';
-      ctx.fillRect(OUTDOOR_DIVIDE_X, 0, worldW - OUTDOOR_DIVIDE_X, wallPadTop);
-      ctx.strokeStyle = '#c026d3';
+      ctx.fillRect(OUTDOOR_DIVIDE_X, 0, MECHA_WASTELAND_DIVIDE_X - OUTDOOR_DIVIDE_X, wallPadTop);
+      ctx.fillStyle = '#291d18';
+      ctx.fillRect(MECHA_WASTELAND_DIVIDE_X, 0, worldW - MECHA_WASTELAND_DIVIDE_X, wallPadTop);
+      ctx.strokeStyle = '#f97316';
       ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.moveTo(OUTDOOR_DIVIDE_X, wallPadTop);
@@ -378,14 +484,16 @@ export function drawIsometricArenaFloor(
     ctx.fillStyle = '#1b2434';
     ctx.fillRect(0, by, OUTDOOR_DIVIDE_X, wallPadBot);
     ctx.fillStyle = '#190921';
-    ctx.fillRect(OUTDOOR_DIVIDE_X, by, worldW - OUTDOOR_DIVIDE_X, wallPadBot);
+    ctx.fillRect(OUTDOOR_DIVIDE_X, by, MECHA_WASTELAND_DIVIDE_X - OUTDOOR_DIVIDE_X, wallPadBot);
+    ctx.fillStyle = '#241914';
+    ctx.fillRect(MECHA_WASTELAND_DIVIDE_X, by, worldW - MECHA_WASTELAND_DIVIDE_X, wallPadBot);
     ctx.strokeStyle = '#38bdf8';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(wallPadX, by);
     ctx.lineTo(OUTDOOR_DIVIDE_X, by);
     ctx.stroke();
-    ctx.strokeStyle = '#ff1744';
+    ctx.strokeStyle = '#f97316';
     ctx.beginPath();
     ctx.moveTo(OUTDOOR_DIVIDE_X, by);
     ctx.lineTo(worldW - wallPadX, by);
@@ -405,9 +513,9 @@ export function drawIsometricArenaFloor(
 
   if (camX + viewW > worldW - wallPadX - 20) {
     const rx = worldW - wallPadX;
-    ctx.fillStyle = '#1f0b29';
+    ctx.fillStyle = '#291d18';
     ctx.fillRect(rx, 0, wallPadX, worldH);
-    ctx.strokeStyle = '#ff1744';
+    ctx.strokeStyle = '#f97316';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.moveTo(rx, wallPadTop);
@@ -432,18 +540,15 @@ export function drawObstacle25D(
     ctx.fillStyle = 'rgba(7, 10, 18, 0.5)';
     ctx.fillRect(snap(x + 4), snap(y + 6), snap(w), snap(h));
 
-    // Front face
     ctx.fillStyle = isQuarantineWall ? '#2b192e' : '#263346';
     ctx.strokeStyle = '#090d16';
     ctx.lineWidth = 2.2;
     ctx.fillRect(snap(x), topY, snap(w), snap(heightZ + h));
     ctx.strokeRect(snap(x), topY, snap(w), snap(heightZ + h));
 
-    // Top beveled armor crown
     ctx.fillStyle = isQuarantineWall ? '#4a1d46' : '#3b4c63';
     ctx.fillRect(snap(x + 2), topY + 2, snap(w - 4), Math.min(20, snap(h * 0.65)));
 
-    // Accent strip along top crown
     ctx.fillStyle = isQuarantineWall ? '#ff1744' : '#38bdf8';
     if (w > h) {
       ctx.fillRect(snap(x + 8), topY + 9, snap(w - 16), 3);
@@ -460,12 +565,149 @@ export function drawObstacle25D(
   ctx.ellipse(x + w * 0.5, y + h * 0.86, w * 0.58, h * 0.44, 0, 0, Math.PI * 2);
   ctx.fill();
 
+  if (variant === 'titan_wreck') {
+    // Colossal Downed War-Mech Husk in the Open-World Mecha Wasteland!
+    const topY = snap(y - heightZ);
+    const pulse = 0.65 + 0.35 * Math.sin(timeSec * 3.4 + x * 0.01);
+
+    // Armored fallen torso & shoulder pauldron
+    ctx.fillStyle = '#292524';
+    ctx.strokeStyle = '#0c0a09';
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    ctx.roundRect(snap(x), topY + 18, snap(w), snap(heightZ + h * 0.62), 14);
+    ctx.fill();
+    ctx.stroke();
+
+    // Heavy hazard stripe armor plate
+    ctx.fillStyle = '#44403c';
+    ctx.fillRect(snap(x + 10), topY + 26, snap(w - 20), 22);
+    ctx.fillStyle = '#f59e0b';
+    for (let sx = x + 16; sx < x + w - 24; sx += 24) {
+      ctx.fillRect(snap(sx), topY + 30, 12, 6);
+    }
+
+    // Ruptured glowing furnace reactor core inside the giant wreck
+    ctx.fillStyle = `rgba(249, 115, 22, ${(0.85 * pulse).toFixed(2)})`;
+    ctx.beginPath();
+    ctx.arc(x + w * 0.36, topY + 68, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fef08a';
+    ctx.beginPath();
+    ctx.arc(x + w * 0.36, topY + 68, 7, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Tilted Colossal Titan Head Unit with flickering Crimson Optic Visor
+    ctx.save();
+    ctx.translate(x + w * 0.72, topY + 56);
+    ctx.rotate(0.24);
+    ctx.fillStyle = '#1c1917';
+    ctx.strokeStyle = '#ea580c';
+    ctx.lineWidth = 2;
+    ctx.fillRect(-26, -22, 52, 38);
+    ctx.strokeRect(-26, -22, 52, 38);
+    ctx.fillStyle = '#ff1744';
+    ctx.fillRect(-18, -6, 36, 8);
+    ctx.restore();
+
+    ctx.restore();
+    return;
+  }
+
+  if (variant === 'mech_gantry') {
+    // Mutated Automated Heavy Forge Gantry with Twin Steel Pillars & Plasma Welder Claw
+    const topY = snap(y - heightZ);
+    const totalH = snap(heightZ + h * 0.75);
+
+    ctx.fillStyle = '#1f2937';
+    ctx.strokeStyle = '#090d16';
+    ctx.lineWidth = 2.4;
+    // Left & right heavy gantry legs
+    ctx.fillRect(snap(x + 6), topY + 14, 24, totalH - 14);
+    ctx.strokeRect(snap(x + 6), topY + 14, 24, totalH - 14);
+    ctx.fillRect(snap(x + w - 30), topY + 14, 24, totalH - 14);
+    ctx.strokeRect(snap(x + w - 30), topY + 14, 24, totalH - 14);
+
+    // Overhead cross-beam bridge
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(snap(x), topY, snap(w), 24);
+    ctx.strokeRect(snap(x), topY, snap(w), 24);
+    ctx.fillStyle = '#f97316';
+    ctx.fillRect(snap(x + 8), topY + 9, snap(w - 16), 5);
+
+    // Swinging servo-claw assembly
+    const clawX = x + w * 0.5 + Math.sin(timeSec * 2.1 + y * 0.01) * (w * 0.18);
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(clawX, topY + 24);
+    ctx.lineTo(clawX, topY + 56);
+    ctx.stroke();
+
+    ctx.fillStyle = '#ff1744';
+    ctx.beginPath();
+    ctx.arc(clawX, topY + 58, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+    return;
+  }
+
+  if (variant === 'tesla_pylon') {
+    // High-Voltage Electromagnetic Storm Pylon in the Mecha Wasteland
+    const topY = snap(y - heightZ);
+    const cx = x + w * 0.5;
+
+    ctx.fillStyle = '#1e293b';
+    ctx.strokeStyle = '#090d16';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.roundRect(snap(x + 8), snap(y + h * 0.25), snap(w - 16), snap(h * 0.65), 8);
+    ctx.fill();
+    ctx.stroke();
+
+    // Insulated coil tower
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(snap(cx - 12), topY + 18, 24, snap(heightZ));
+    ctx.strokeRect(snap(cx - 12), topY + 18, 24, snap(heightZ));
+
+    for (let ring = 0; ring < 3; ring++) {
+      const ry = topY + 28 + ring * 22;
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(cx, ry, 22 - ring * 2, 7, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Crown plasma sphere + crackling lightning bolt
+    ctx.fillStyle = '#00e5ff';
+    ctx.beginPath();
+    ctx.arc(cx, topY + 12, 11, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(cx, topY + 12, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (Math.sin(timeSec * 14 + x) > 0) {
+      ctx.strokeStyle = '#67e8f9';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(cx, topY + 12);
+      ctx.lineTo(cx + 22, topY + 30);
+      ctx.lineTo(cx + 8, topY + 48);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+    return;
+  }
+
   if (variant === 'eldritch_obelisk') {
-    // Towering Cthulhu-AI Black Monolith wrapped in writhing crimson tentacles & a giant Abyssal Eye!
     const topY = snap(y - heightZ);
     const pulse = 0.7 + 0.3 * Math.sin(timeSec * 3.8 + x * 0.01);
 
-    // Abyssal ground aura
     const aura = ctx.createRadialGradient(x + w / 2, y + h * 0.6, 8, x + w / 2, y + h * 0.6, w * 0.95);
     aura.addColorStop(0, `rgba(192, 38, 211, ${(0.38 * pulse).toFixed(2)})`);
     aura.addColorStop(1, 'rgba(255, 23, 68, 0)');
@@ -474,7 +716,6 @@ export function drawObstacle25D(
     ctx.arc(x + w / 2, y + h * 0.6, w * 0.95, 0, Math.PI * 2);
     ctx.fill();
 
-    // Writhing base tentacles coiling out from beneath the spire
     ctx.lineCap = 'round';
     for (let t = 0; t < 4; t++) {
       const dir = t < 2 ? -1 : 1;
@@ -490,7 +731,6 @@ export function drawObstacle25D(
       ctx.stroke();
     }
 
-    // Tapered obsidian monolith spire
     ctx.fillStyle = '#14091c';
     ctx.strokeStyle = '#c026d3';
     ctx.lineWidth = 2.2;
@@ -503,7 +743,6 @@ export function drawObstacle25D(
     ctx.fill();
     ctx.stroke();
 
-    // Giant Vertical Cthulhu Crimson Eye in center of spire
     const eyeX = x + w * 0.5;
     const eyeY = topY + (heightZ + h * 0.5) * 0.42;
     ctx.fillStyle = '#ff1744';
@@ -524,11 +763,9 @@ export function drawObstacle25D(
   }
 
   if (variant === 'flesh_hive') {
-    // Ruptured AI Server Rack overgrown with Lovecraftian Flesh-Chitin, Eyes & Tendrils
     const topY = snap(y - heightZ);
     const totalH = snap(heightZ + h * 0.72);
 
-    // Corrupted metallic server shell
     ctx.fillStyle = '#1f122b';
     ctx.strokeStyle = '#09050f';
     ctx.lineWidth = 2.4;
@@ -537,7 +774,6 @@ export function drawObstacle25D(
     ctx.fill();
     ctx.stroke();
 
-    // Pulsating eldritch biomass growth over top-right & base
     const swell = Math.sin(timeSec * 4.5 + y * 0.02) * 3;
     ctx.fillStyle = '#581c87';
     ctx.strokeStyle = '#e11d48';
@@ -547,7 +783,6 @@ export function drawObstacle25D(
     ctx.fill();
     ctx.stroke();
 
-    // Cluster of blinking crimson Cthulhu eyes on the hive
     const hiveEyes = [
       { ox: 0.32, oy: 22, r: 6.5 },
       { ox: 0.55, oy: 18, r: 8.5 },

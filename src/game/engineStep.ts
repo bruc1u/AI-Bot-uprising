@@ -23,6 +23,7 @@ import {
 import {
   ARENA_OBSTACLES,
   getZoneAt,
+  MECHA_WASTELAND_DIVIDE_X,
   OUTDOOR_DIVIDE_X,
   PLAYER_SPAWN_X,
   PLAYER_SPAWN_Y,
@@ -30,8 +31,17 @@ import {
   WORLD_W,
 } from './worldZones';
 
-export { ARENA_OBSTACLES, getZoneAt, OUTDOOR_DIVIDE_X, PLAYER_SPAWN_X, PLAYER_SPAWN_Y, WORLD_H, WORLD_W };
-export const MAX_PLAYER_HP = 180;
+export {
+  ARENA_OBSTACLES,
+  getZoneAt,
+  MECHA_WASTELAND_DIVIDE_X,
+  OUTDOOR_DIVIDE_X,
+  PLAYER_SPAWN_X,
+  PLAYER_SPAWN_Y,
+  WORLD_H,
+  WORLD_W,
+};
+export const MAX_PLAYER_HP = 210;
 
 export interface InternalEnemy extends RenderEnemyData {
   id: string;
@@ -54,6 +64,9 @@ export interface SimState {
   mouseWorldX: number;
   mouseWorldY: number;
   mouseDown: boolean;
+  touchMoveX: number;
+  touchMoveY: number;
+  touchAimActive: boolean;
   keys: Set<string>;
   hp: number;
   invulnTimer: number;
@@ -81,7 +94,13 @@ export interface SimState {
     vx: number;
     vy: number;
     fromPlayer: boolean;
-    kind: 'enemy_bullet' | 'enemy_rocket' | 'eldritch_orb' | 'cannon_shell' | 'master_sphere';
+    kind:
+      | 'enemy_bullet'
+      | 'enemy_rocket'
+      | 'eldritch_orb'
+      | 'plasma_saw'
+      | 'cannon_shell'
+      | 'master_sphere';
     damage: number;
     targetEnemyId?: string;
     life: number;
@@ -117,6 +136,9 @@ export function createInitialSimState(): SimState {
     mouseWorldX: PLAYER_SPAWN_X + 140,
     mouseWorldY: PLAYER_SPAWN_Y,
     mouseDown: false,
+    touchMoveX: 0,
+    touchMoveY: 0,
+    touchAimActive: false,
     keys: new Set<string>(),
     hp: MAX_PLAYER_HP,
     invulnTimer: 0,
@@ -164,52 +186,74 @@ export function createInitialSimState(): SimState {
 
 export function buildWaveEnemies(waveNum: number): { enemies: InternalEnemy[]; chests: FieldChest[] } {
   const indoorRoomSpawns = [
-    // OpenAI Neural Server Vault
-    { x: 640, y: 420 },
-    { x: 1080, y: 580 },
-    { x: 1520, y: 520 },
-    // Anthropic Robotics Foundry
-    { x: 1960, y: 480 },
-    { x: 2440, y: 520 },
-    // Bio-Cryo Containment Lab
-    { x: 460, y: 1520 },
-    { x: 680, y: 1680 },
-    // Command Hub Outer Perimeter
-    { x: 1180, y: 1560 },
-    { x: 2420, y: 1580 },
-    // South Heavy Ordnance Hangar
-    { x: 860, y: 2680 },
-    { x: 1680, y: 2740 },
-    { x: 2380, y: 2680 },
+    // Sector A1: OpenAI Neural Server Vault
+    { x: 520, y: 460 },
+    { x: 980, y: 680 },
+    { x: 1460, y: 580 },
+    { x: 740, y: 920 },
+    // Sector A2: Anthropic Robotics Foundry
+    { x: 1960, y: 520 },
+    { x: 2420, y: 540 },
+    { x: 2220, y: 940 },
+    // Sector B1: Bio-Cryo Containment Lab
+    { x: 420, y: 1640 },
+    { x: 680, y: 1920 },
+    { x: 460, y: 2340 },
+    // Sector 00: Quantum Command Hub Outer Flanks
+    { x: 1140, y: 1580 },
+    { x: 1180, y: 2160 },
+    { x: 2420, y: 1560 },
+    { x: 2440, y: 2140 },
+    // Sector C1: Heavy Ordnance Hangar
+    { x: 580, y: 3060 },
+    { x: 1480, y: 3040 },
+    { x: 2040, y: 3120 },
+    { x: 2480, y: 3020 },
+    // Sector D1: Chimera Splicing Lab
+    { x: 640, y: 3860 },
+    { x: 1080, y: 4180 },
+    { x: 1840, y: 3920 },
+    { x: 2440, y: 4140 },
   ];
 
-  const outdoorEldritchSpawns = [
+  const cthulhuAbyssSpawns = [
     { x: 2980, y: 620 },
-    { x: 3560, y: 560 },
-    { x: 4180, y: 780 },
-    { x: 3040, y: 1580 },
-    { x: 3680, y: 1560 },
-    { x: 4280, y: 1920 },
-    { x: 3080, y: 2620 },
-    { x: 3680, y: 2780 },
-    { x: 4260, y: 2560 },
+    { x: 3580, y: 540 },
+    { x: 4280, y: 820 },
+    { x: 3040, y: 1480 },
+    { x: 3680, y: 1640 },
+    { x: 4380, y: 1980 },
+    { x: 3080, y: 2680 },
+    { x: 3740, y: 2880 },
+    { x: 4340, y: 2940 },
+    { x: 3120, y: 3680 },
+    { x: 3780, y: 3920 },
+    { x: 4380, y: 4120 },
   ];
 
-  const pickIndoor = (idx: number) => {
-    const base = indoorRoomSpawns[idx % indoorRoomSpawns.length];
-    return {
-      x: base.x + (Math.random() - 0.5) * 120,
-      y: base.y + (Math.random() - 0.5) * 90,
-    };
-  };
+  const mechaWastelandSpawns = [
+    { x: 4920, y: 780 },
+    { x: 5540, y: 680 },
+    { x: 6280, y: 760 },
+    { x: 6840, y: 980 },
+    { x: 4980, y: 1780 },
+    { x: 5620, y: 1680 },
+    { x: 6480, y: 1840 },
+    { x: 6920, y: 2140 },
+    { x: 4960, y: 2840 },
+    { x: 5680, y: 2780 },
+    { x: 6340, y: 2960 },
+    { x: 6880, y: 3240 },
+    { x: 4980, y: 3780 },
+    { x: 5640, y: 3880 },
+    { x: 6480, y: 3960 },
+    { x: 6920, y: 4220 },
+  ];
 
-  const pickOutdoor = (idx: number) => {
-    const base = outdoorEldritchSpawns[idx % outdoorEldritchSpawns.length];
-    return {
-      x: base.x + (Math.random() - 0.5) * 140,
-      y: base.y + (Math.random() - 0.5) * 120,
-    };
-  };
+  const jitter = (base: { x: number; y: number }, r = 120) => ({
+    x: base.x + (Math.random() - 0.5) * r,
+    y: base.y + (Math.random() - 0.5) * (r * 0.8),
+  });
 
   const mk = (
     id: string,
@@ -243,7 +287,7 @@ export function buildWaveEnemies(waveNum: number): { enemies: InternalEnemy[]; c
     meleeSwingTimer: 0,
     walkPhase: Math.random() * Math.PI * 2,
     isMoving: false,
-    attackCooldown: 1.3 + Math.random() * 1.1,
+    attackCooldown: 1.2 + Math.random() * 1.2,
     burstRemaining: 0,
     burstTimer: 0,
     attackPatternStep: 0,
@@ -251,84 +295,230 @@ export function buildWaveEnemies(waveNum: number): { enemies: InternalEnemy[]; c
   });
 
   const enemies: InternalEnemy[] = [];
-  let sIdx = 0;
+  let inIdx = 0;
+  let cthIdx = 0;
+  let mechIdx = 0;
 
-  // 1. INDOOR CORPORATE RED-EYE LEGIONS (Stationed across the 5 Facility Rooms)
-  const stalkerCount = 3 + waveNum;
+  // 1. INDOOR 6-SECTOR CORPORATE & CHIMERA LEGIONS (Dense room-to-room combat)
+  const stalkerCount = 9 + waveNum * 2;
   for (let i = 0; i < stalkerCount; i++) {
-    enemies.push(mk(`st-${waveNum}-${i}`, EnemyKind.OPENAI_STALKER, 128 + waveNum * 24, 0, 99, pickIndoor(sIdx++)));
-  }
-  const viperCount = 2 + Math.floor(waveNum * 0.8);
-  for (let i = 0; i < viperCount; i++) {
-    enemies.push(mk(`vp-${waveNum}-${i}`, EnemyKind.OPENAI_VIPER, 96 + waveNum * 20, 0, 99, pickIndoor(sIdx++)));
-  }
-  const bulwarkCount = 1 + Math.floor(waveNum * 0.7);
-  for (let i = 0; i < bulwarkCount; i++) {
     enemies.push(
-      mk(`bw-${waveNum}-${i}`, EnemyKind.ANTHROPIC_BULWARK, 215 + waveNum * 38, 65 + waveNum * 15, 99, pickIndoor(sIdx++))
+      mk(
+        `st-${waveNum}-${i}`,
+        EnemyKind.OPENAI_STALKER,
+        125 + waveNum * 22,
+        0,
+        99,
+        jitter(indoorRoomSpawns[inIdx++ % indoorRoomSpawns.length])
+      )
     );
   }
-  enemies.push(
-    mk(`wv-${waveNum}-0`, EnemyKind.LOGIC_WEAVER_ELITE, 320 + waveNum * 55, 55 + waveNum * 12, 10.5, {
-      x: 1380,
-      y: 540,
-    })
-  );
 
-  // 2. OUTDOOR CTHULHU-MUTATED AI HORRORS (Haunting the Crimson Eldritch Wastes beyond x = 2680!)
-  const weaverMutantCount = 2 + Math.floor(waveNum * 0.8);
+  const viperCount = 6 + Math.floor(waveNum * 1.5);
+  for (let i = 0; i < viperCount; i++) {
+    enemies.push(
+      mk(
+        `vp-${waveNum}-${i}`,
+        EnemyKind.OPENAI_VIPER,
+        95 + waveNum * 18,
+        0,
+        99,
+        jitter(indoorRoomSpawns[inIdx++ % indoorRoomSpawns.length])
+      )
+    );
+  }
+
+  const bulwarkCount = 4 + waveNum;
+  for (let i = 0; i < bulwarkCount; i++) {
+    enemies.push(
+      mk(
+        `bw-${waveNum}-${i}`,
+        EnemyKind.ANTHROPIC_BULWARK,
+        210 + waveNum * 34,
+        60 + waveNum * 14,
+        99,
+        jitter(indoorRoomSpawns[inIdx++ % indoorRoomSpawns.length])
+      )
+    );
+  }
+
+  const indoorChimeraCount = 3 + Math.floor(waveNum * 0.8);
+  for (let i = 0; i < indoorChimeraCount; i++) {
+    const labSpot = indoorRoomSpawns[18 + (i % 4)];
+    enemies.push(
+      mk(
+        `chm-in-${waveNum}-${i}`,
+        EnemyKind.CHIMERA_HOUND_WEAVER,
+        175 + waveNum * 28,
+        30,
+        99,
+        jitter(labSpot, 140)
+      )
+    );
+  }
+
+  const indoorEliteCount = 2 + Math.floor(waveNum * 0.5);
+  const eliteIndoorSpots = [
+    { x: 1380, y: 580 },
+    { x: 1680, y: 3060 },
+    { x: 1680, y: 4080 },
+  ];
+  for (let i = 0; i < indoorEliteCount; i++) {
+    enemies.push(
+      mk(
+        `wv-${waveNum}-${i}`,
+        EnemyKind.LOGIC_WEAVER_ELITE,
+        310 + waveNum * 50,
+        55 + waveNum * 12,
+        10.5,
+        jitter(eliteIndoorSpots[i % eliteIndoorSpots.length], 70)
+      )
+    );
+  }
+
+  // 2. OUTDOOR CTHULHU BIO-CYBER ABYSS HORRORS & CHIMERAS (x: 2680..4680)
+  const weaverMutantCount = 6 + waveNum;
   for (let i = 0; i < weaverMutantCount; i++) {
     enemies.push(
       mk(
         `eld-w-${waveNum}-${i}`,
         EnemyKind.ELDRITCH_TENTACLE_WEAVER,
-        165 + waveNum * 30,
+        160 + waveNum * 28,
         25,
         99,
-        pickOutdoor(i)
+        jitter(cthulhuAbyssSpawns[cthIdx++ % cthulhuAbyssSpawns.length], 150)
       )
     );
   }
 
-  const shoggothCount = 1 + Math.floor(waveNum * 0.6);
+  const shoggothCount = 4 + Math.floor(waveNum * 0.8);
   for (let i = 0; i < shoggothCount; i++) {
     enemies.push(
       mk(
         `eld-s-${waveNum}-${i}`,
         EnemyKind.SHOGGOTH_CORE_AMALGAM,
-        265 + waveNum * 45,
+        255 + waveNum * 42,
         55 + waveNum * 14,
         99,
-        pickOutdoor(i + 3)
+        jitter(cthulhuAbyssSpawns[cthIdx++ % cthulhuAbyssSpawns.length], 150)
       )
     );
   }
 
-  // Towering Cthulhu Overmind Dreadnought Boss in deep Outdoor Wastes!
+  const abyssChimeraCount = 3 + Math.floor(waveNum * 0.7);
+  for (let i = 0; i < abyssChimeraCount; i++) {
+    enemies.push(
+      mk(
+        `chm-ab-${waveNum}-${i}`,
+        EnemyKind.CHIMERA_HOUND_WEAVER,
+        185 + waveNum * 30,
+        35,
+        99,
+        jitter(cthulhuAbyssSpawns[cthIdx++ % cthulhuAbyssSpawns.length], 150)
+      )
+    );
+  }
+
+  // WORLD BOSS 1: Cthulhu Leviathan Prime (Central Bio-Abyss)
   enemies.push(
     mk(
-      `eld-c-${waveNum}-0`,
+      `boss-cthulhu-${waveNum}`,
       EnemyKind.CTHULHU_LEVIATHAN_PRIME,
-      440 + waveNum * 80,
-      85 + waveNum * 20,
+      560 + waveNum * 95,
+      110 + waveNum * 22,
       9.0,
-      { x: 3920, y: 1620 }
+      { x: 3920, y: 2160 }
     )
   );
 
-  // 3. WILD CAPTURABLE CYBER PETS (Indoor & Outdoor Breach)
-  enemies.push(mk(`wild-dog-${waveNum}-0`, EnemyKind.WILD_SCOUT_DOG, 90 + waveNum * 12, 0, 99, { x: 1320, y: 1840 }));
-  enemies.push(mk(`wild-dog-${waveNum}-1`, EnemyKind.WILD_SCOUT_DOG, 90 + waveNum * 12, 0, 99, { x: 2940, y: 1220 }));
-  enemies.push(mk(`wild-cat-${waveNum}-0`, EnemyKind.WILD_CYBER_CAT, 84 + waveNum * 12, 0, 99, { x: 2220, y: 1820 }));
-  enemies.push(mk(`wild-cat-${waveNum}-1`, EnemyKind.WILD_CYBER_CAT, 84 + waveNum * 12, 0, 99, { x: 3020, y: 2040 }));
+  // 3. OPEN-WORLD TITAN MECHA WASTELAND GIANT WAR-MACHINES, ELITES & BOSSES (x: 4680..7136)
+  const spiderMechCount = 6 + waveNum;
+  for (let i = 0; i < spiderMechCount; i++) {
+    enemies.push(
+      mk(
+        `m-sp-${waveNum}-${i}`,
+        EnemyKind.MECH_SPIDER_ARACHNID,
+        230 + waveNum * 36,
+        65 + waveNum * 14,
+        99,
+        jitter(mechaWastelandSpawns[mechIdx++ % mechaWastelandSpawns.length], 160)
+      )
+    );
+  }
+
+  const excavatorCount = 4 + Math.floor(waveNum * 0.8);
+  for (let i = 0; i < excavatorCount; i++) {
+    enemies.push(
+      mk(
+        `m-ex-${waveNum}-${i}`,
+        EnemyKind.MUTATED_EXCAVATOR_BEHEMOTH,
+        295 + waveNum * 46,
+        80 + waveNum * 16,
+        99,
+        jitter(mechaWastelandSpawns[mechIdx++ % mechaWastelandSpawns.length], 160)
+      )
+    );
+  }
+
+  const eliteChimeraCount = 3 + Math.floor(waveNum * 0.6);
+  for (let i = 0; i < eliteChimeraCount; i++) {
+    enemies.push(
+      mk(
+        `el-chm-${waveNum}-${i}`,
+        EnemyKind.ELITE_CHIMERA_JUGGERNAUT,
+        350 + waveNum * 56,
+        90 + waveNum * 18,
+        10.0,
+        jitter(mechaWastelandSpawns[mechIdx++ % mechaWastelandSpawns.length], 160)
+      )
+    );
+  }
+
+  // WORLD BOSS 2: Iron Colossus Titan (North-Central Open-World Mecha Wasteland)
+  enemies.push(
+    mk(
+      `boss-titan-${waveNum}`,
+      EnemyKind.BOSS_IRON_COLOSSUS_TITAN,
+      720 + waveNum * 120,
+      150 + waveNum * 28,
+      8.5,
+      { x: 6040, y: 1760 }
+    )
+  );
+
+  // WORLD BOSS 3: Omega Chimera Overlord (South-East Apex Fusion Grounds)
+  enemies.push(
+    mk(
+      `boss-chimera-${waveNum}`,
+      EnemyKind.BOSS_OMEGA_CHIMERA_AMALGAM,
+      780 + waveNum * 130,
+      140 + waveNum * 26,
+      8.0,
+      { x: 6380, y: 3460 }
+    )
+  );
+
+  // 4. WILD CAPTURABLE CYBER PETS (Across Indoor & Outdoor Frontier)
+  enemies.push(mk(`wild-dog-${waveNum}-0`, EnemyKind.WILD_SCOUT_DOG, 90 + waveNum * 12, 0, 99, { x: 1320, y: 2040 }));
+  enemies.push(mk(`wild-dog-${waveNum}-1`, EnemyKind.WILD_SCOUT_DOG, 90 + waveNum * 12, 0, 99, { x: 2940, y: 1520 }));
+  enemies.push(mk(`wild-dog-${waveNum}-2`, EnemyKind.WILD_SCOUT_DOG, 90 + waveNum * 12, 0, 99, { x: 5120, y: 1940 }));
+  enemies.push(mk(`wild-cat-${waveNum}-0`, EnemyKind.WILD_CYBER_CAT, 84 + waveNum * 12, 0, 99, { x: 2220, y: 2020 }));
+  enemies.push(mk(`wild-cat-${waveNum}-1`, EnemyKind.WILD_CYBER_CAT, 84 + waveNum * 12, 0, 99, { x: 3020, y: 2940 }));
+  enemies.push(mk(`wild-cat-${waveNum}-2`, EnemyKind.WILD_CYBER_CAT, 84 + waveNum * 12, 0, 99, { x: 5240, y: 3120 }));
 
   const chests: FieldChest[] = [
-    { id: `ch-${waveNum}-1`, x: 760, y: 340, opened: false, hackProgress: 0 },
-    { id: `ch-${waveNum}-2`, x: 2480, y: 360, opened: false, hackProgress: 0 },
-    { id: `ch-${waveNum}-3`, x: 460, y: 1480, opened: false, hackProgress: 0 },
-    { id: `ch-${waveNum}-4`, x: 1780, y: 2820, opened: false, hackProgress: 0 },
-    { id: `ch-${waveNum}-5`, x: 3340, y: 780, opened: false, hackProgress: 0 },
-    { id: `ch-${waveNum}-6`, x: 4160, y: 2280, opened: false, hackProgress: 0 },
+    { id: `ch-${waveNum}-1`, x: 760, y: 360, opened: false, hackProgress: 0 },
+    { id: `ch-${waveNum}-2`, x: 2480, y: 380, opened: false, hackProgress: 0 },
+    { id: `ch-${waveNum}-3`, x: 460, y: 1720, opened: false, hackProgress: 0 },
+    { id: `ch-${waveNum}-4`, x: 1780, y: 3140, opened: false, hackProgress: 0 },
+    { id: `ch-${waveNum}-5`, x: 1120, y: 4160, opened: false, hackProgress: 0 },
+    { id: `ch-${waveNum}-6`, x: 3340, y: 820, opened: false, hackProgress: 0 },
+    { id: `ch-${waveNum}-7`, x: 4180, y: 2420, opened: false, hackProgress: 0 },
+    { id: `ch-${waveNum}-8`, x: 3620, y: 3880, opened: false, hackProgress: 0 },
+    { id: `ch-${waveNum}-9`, x: 5340, y: 960, opened: false, hackProgress: 0 },
+    { id: `ch-${waveNum}-10`, x: 6420, y: 1580, opened: false, hackProgress: 0 },
+    { id: `ch-${waveNum}-11`, x: 5560, y: 3180, opened: false, hackProgress: 0 },
+    { id: `ch-${waveNum}-12`, x: 6680, y: 4060, opened: false, hackProgress: 0 },
   ];
   return { enemies, chests };
 }
@@ -361,6 +551,14 @@ export function renderWorld25D(
   ctx.translate(-camX, -camY);
 
   for (const puddle of s.puddles) {
+    if (
+      puddle.x < camX - 80 ||
+      puddle.x > camX + viewW + 80 ||
+      puddle.y < camY - 80 ||
+      puddle.y > camY + viewH + 80
+    ) {
+      continue;
+    }
     ctx.fillStyle = puddle.color;
     ctx.globalAlpha = puddle.alpha * 0.42;
     ctx.beginPath();
@@ -374,10 +572,16 @@ export function renderWorld25D(
   }
 
   for (const d of s.drops) {
-    drawLootDrop25D(ctx, d, timeSec);
+    if (d.x > camX - 60 && d.x < camX + viewW + 60 && d.y > camY - 60 && d.y < camY + viewH + 60) {
+      drawLootDrop25D(ctx, d, timeSec);
+    }
   }
 
-  for (const c of s.chests) drawFieldChest(ctx, c, timeSec);
+  for (const c of s.chests) {
+    if (c.x > camX - 80 && c.x < camX + viewW + 80 && c.y > camY - 80 && c.y < camY + viewH + 80) {
+      drawFieldChest(ctx, c, timeSec);
+    }
+  }
 
   type Item =
     | { sortY: number; type: 'obs'; obs: ObstacleBlock }
@@ -385,9 +589,17 @@ export function renderWorld25D(
     | { sortY: number; type: 'player' }
     | { sortY: number; type: 'comp'; kind: CompanionKind; x: number; y: number; facingRight: boolean };
 
+  const visibleEnemies = s.enemies.filter(
+    (en) =>
+      en.x > camX - 180 &&
+      en.x < camX + viewW + 180 &&
+      en.y > camY - 140 &&
+      en.y < camY + viewH + 220
+  );
+
   const list: Item[] = [
     ...ARENA_OBSTACLES.map((obs) => ({ sortY: obs.y + obs.h * 0.85, type: 'obs' as const, obs })),
-    ...s.enemies.map((enemy) => ({ sortY: enemy.y, type: 'enemy' as const, enemy })),
+    ...visibleEnemies.map((enemy) => ({ sortY: enemy.y, type: 'enemy' as const, enemy })),
     { sortY: s.py, type: 'player' as const },
   ];
   if (dogComp) {
@@ -449,7 +661,7 @@ export function renderWorld25D(
     }
   }
 
-  // Combat Slashes, Lasers, Rifle Bolts, Rockets & Cthulhu Abyssal Void Orbs
+  // Combat Slashes, Lasers, Rifle Bolts, Rockets, Spinning Plasma Saws & Void Orbs
   ctx.save();
   for (const sl of s.slashes) {
     ctx.strokeStyle = sl.color;
@@ -485,10 +697,38 @@ export function renderWorld25D(
 
   ctx.globalAlpha = 1;
   for (const p of s.projectiles) {
+    if (p.x < camX - 60 || p.x > camX + viewW + 60 || p.y < camY - 60 || p.y > camY + viewH + 60) {
+      continue;
+    }
     if (p.kind === 'master_sphere') {
       drawQuantumPrism25D(ctx, p.x, p.y, 1.15, timeSec);
+    } else if (p.kind === 'plasma_saw') {
+      // Spinning Molten Buzzsaw / Plasma Disc hurled by Mutated Heavy Machinery & Iron Colossus!
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(timeSec * 22);
+      ctx.fillStyle = 'rgba(249, 115, 22, 0.35)';
+      ctx.beginPath();
+      ctx.arc(0, 0, 16, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#e2e8f0';
+      ctx.strokeStyle = '#f97316';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const a = (i * Math.PI) / 4;
+        ctx.lineTo(Math.cos(a) * 12, Math.sin(a) * 12);
+        ctx.lineTo(Math.cos(a + 0.38) * 7, Math.sin(a + 0.38) * 7);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#ff1744';
+      ctx.beginPath();
+      ctx.arc(0, 0, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     } else if (p.kind === 'eldritch_orb') {
-      // Swirling Cthulhu Abyssal Eyeball / Void Sphere with trailing dark tendrils!
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.fillStyle = 'rgba(192, 38, 211, 0.36)';
@@ -504,7 +744,6 @@ export function renderWorld25D(
       ctx.fill();
       ctx.stroke();
 
-      // Vertical yellow-black slit Cthulhu pupil inside the flying orb
       ctx.fillStyle = '#fde047';
       ctx.beginPath();
       ctx.ellipse(0, 0, 4.2, 5.5, 0, 0, Math.PI * 2);
@@ -591,12 +830,13 @@ export function renderWorld25D(
   }
   ctx.restore();
 
-  // Dynamic Indoor vs Terrifying Outdoor Eldritch Vignette
+  // Dynamic Biome Vignette (Indoor Neon Steel vs Cthulhu Bio-Abyss vs Open-World Mecha Furnace)
+  const inMecha = s.px >= MECHA_WASTELAND_DIVIDE_X;
   const inOutdoor = s.px >= OUTDOOR_DIVIDE_X;
   const edgeGlow = ctx.createRadialGradient(
     viewW / 2,
     viewH / 2,
-    Math.max(viewW, viewH) * (inOutdoor ? 0.36 : 0.46),
+    Math.max(viewW, viewH) * (inOutdoor ? 0.38 : 0.46),
     viewW / 2,
     viewH / 2,
     Math.max(viewW, viewH) * 0.86
@@ -604,7 +844,11 @@ export function renderWorld25D(
   edgeGlow.addColorStop(0, 'rgba(0, 0, 0, 0)');
   edgeGlow.addColorStop(
     1,
-    inOutdoor ? 'rgba(74, 4, 78, 0.48)' : 'rgba(8, 15, 28, 0.32)'
+    inMecha
+      ? 'rgba(124, 45, 18, 0.42)'
+      : inOutdoor
+      ? 'rgba(74, 4, 78, 0.46)'
+      : 'rgba(8, 15, 28, 0.3)'
   );
   ctx.fillStyle = edgeGlow;
   ctx.fillRect(0, 0, viewW, viewH);

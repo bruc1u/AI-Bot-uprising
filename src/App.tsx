@@ -290,11 +290,11 @@ export default function App() {
         const coreAvailable = needsOCore ? prev.oCores : prev.aCores;
         if (coreAvailable < coreCost) return prev;
 
-        const { nextRu9, refreshed } = spendWithAutoRefill(prev.ru9, ru9Cost);
+        const { nextRu9 } = spendWithAutoRefill(prev.ru9, ru9Cost);
         soundFX.playCaptureResult(true);
         const tx = appendTx(
           'ARMORY UPGRADE',
-          `${weapon} → Tier ${lvl + 1}${refreshed ? ' (Auto-Refreshed 1M $RU9)' : ''}`,
+          `${weapon} → Tier ${lvl + 1}`,
           `-${ru9Cost.toLocaleString()} $RU9`,
           'vibevibe.fun'
         );
@@ -453,7 +453,7 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#06080f] text-slate-100 flex flex-col">
+    <div className="min-h-dvh bg-[#06080f] text-slate-100 flex flex-col">
       {/* PRIMARY COMPACT 3-ZONE TOP HEADER */}
       <header className="h-11 border-b border-slate-800/90 bg-[#090c15] px-3 lg:px-5 flex items-center justify-between gap-3 z-30">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -505,8 +505,8 @@ export default function App() {
 
       {/* COMPACT TOP HUD SUB-BAR ($RU9, OpenAI Core, Anthropic Core + Language Menu — NO Stock Price Ticker) */}
       <div className="min-h-9 border-b border-slate-800/80 bg-[#0b0f1a] px-3 lg:px-5 py-1 flex flex-wrap items-center justify-between gap-2.5 z-20">
-        <div className="flex flex-wrap items-center gap-4 text-xs font-mono tabular-nums">
-          <div className="flex items-center gap-1.5" title="Initial 1,000,000 $RU9 · Auto-refreshes when depleted">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs font-mono tabular-nums">
+          <div className="flex items-center gap-1.5">
             <ItemPreviewArt kind="ru9" className="w-5 h-5 shrink-0" />
             <span className="text-slate-400">$RU9</span>
             <strong className="text-amber-400 text-xs sm:text-sm">

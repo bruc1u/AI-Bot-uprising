@@ -1,31 +1,39 @@
 import { EnemyKind, PlayerSkinId } from '../types/game';
 
+const BASE_PREFIX = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/');
+const assetPath = (rel: string) => `${BASE_PREFIX}${rel.replace(/^\/+/, '')}`;
+
 export const ASSET_URLS = {
-  DEGEN_DOGE: '/assets/aistudio/ba00b145ad56d8db459007e74b7dbe77_50efa062.webp',
-  DEGEN_DOGE_FULL: '/assets/aistudio/image_2cd327cb.png',
-  DOGE_R_IDLE:
-    '/assets/aistudio/71a7831cb46d4972be2618bdedda2ca6.jpeg_tplv-a9rns2rl98-cgen_wm0_1e6574e7.png',
-  DOGE_R_STRIDE:
-    '/assets/aistudio/809e5fbab73b44a6afd57653b36d0c35.jpeg_tplv-a9rns2rl98-cgen_wm0_ef82b73c.png',
-  DOGE_R_STEP:
-    '/assets/aistudio/9b99c69f670247e29c535a9bc1f241a8.jpeg_tplv-a9rns2rl98-cgen_wm0_fd5cfb31.png',
-  DOGE_L_IDLE:
-    '/assets/aistudio/bb47ee1e0e3d47f8852d0a3664734895.jpeg_tplv-a9rns2rl98-cgen_wm0_c209e18a.png',
-  DOGE_L_STEP:
-    '/assets/aistudio/76584d1c1dbc43f884c69c4c6c1bbfbe.jpeg_tplv-a9rns2rl98-cgen_wm0_00ec08b5.png',
-  VIBER_10: '/assets/aistudio/viber-10-480_55d84239.webp',
-  VIBER_31: '/assets/aistudio/viber-31-480_c7515c54.webp',
-  VIBER_63: '/assets/aistudio/viber-63-480_f31f4ef4.webp',
-  VIBER_42: '/assets/aistudio/viber-42-480_ed39c3b4.webp',
-  VIBER_48: '/assets/aistudio/viber-48-480_82b36bc2.webp',
-  VIBER_71: '/assets/aistudio/viber-71-480_680caaab.webp',
-  VIBER_103: '/assets/aistudio/viber-103-480_be60e48a.webp',
-  VIBER_6: '/assets/aistudio/viber-6-480_3ecae7ac.webp',
-  VIBER_32: '/assets/aistudio/viber-32-480_c2762abf.webp',
-  KEYCAP_HERO: '/assets/aistudio/image_ea7c7606.png',
-  TRADE_ROOM: '/assets/aistudio/image_598e80ad.png',
-  VIBEVIBE_LOGO: '/assets/aistudio/image_6eb33e21.png',
-  OPENAI_KNOT: '/assets/aistudio/image_fb9fe75b.png',
+  DEGEN_DOGE: assetPath('assets/aistudio/ba00b145ad56d8db459007e74b7dbe77_50efa062.webp'),
+  DEGEN_DOGE_FULL: assetPath('assets/aistudio/image_2cd327cb.png'),
+  DOGE_R_IDLE: assetPath(
+    'assets/aistudio/71a7831cb46d4972be2618bdedda2ca6.jpeg_tplv-a9rns2rl98-cgen_wm0_1e6574e7.png'
+  ),
+  DOGE_R_STRIDE: assetPath(
+    'assets/aistudio/809e5fbab73b44a6afd57653b36d0c35.jpeg_tplv-a9rns2rl98-cgen_wm0_ef82b73c.png'
+  ),
+  DOGE_R_STEP: assetPath(
+    'assets/aistudio/9b99c69f670247e29c535a9bc1f241a8.jpeg_tplv-a9rns2rl98-cgen_wm0_fd5cfb31.png'
+  ),
+  DOGE_L_IDLE: assetPath(
+    'assets/aistudio/bb47ee1e0e3d47f8852d0a3664734895.jpeg_tplv-a9rns2rl98-cgen_wm0_c209e18a.png'
+  ),
+  DOGE_L_STEP: assetPath(
+    'assets/aistudio/76584d1c1dbc43f884c69c4c6c1bbfbe.jpeg_tplv-a9rns2rl98-cgen_wm0_00ec08b5.png'
+  ),
+  VIBER_10: assetPath('assets/aistudio/viber-10-480_55d84239.webp'),
+  VIBER_31: assetPath('assets/aistudio/viber-31-480_c7515c54.webp'),
+  VIBER_63: assetPath('assets/aistudio/viber-63-480_f31f4ef4.webp'),
+  VIBER_42: assetPath('assets/aistudio/viber-42-480_ed39c3b4.webp'),
+  VIBER_48: assetPath('assets/aistudio/viber-48-480_82b36bc2.webp'),
+  VIBER_71: assetPath('assets/aistudio/viber-71-480_680caaab.webp'),
+  VIBER_103: assetPath('assets/aistudio/viber-103-480_be60e48a.webp'),
+  VIBER_6: assetPath('assets/aistudio/viber-6-480_3ecae7ac.webp'),
+  VIBER_32: assetPath('assets/aistudio/viber-32-480_c2762abf.webp'),
+  KEYCAP_HERO: assetPath('assets/aistudio/image_ea7c7606.png'),
+  TRADE_ROOM: assetPath('assets/aistudio/image_598e80ad.png'),
+  VIBEVIBE_LOGO: assetPath('assets/aistudio/image_6eb33e21.png'),
+  OPENAI_KNOT: assetPath('assets/aistudio/image_fb9fe75b.png'),
 } as const;
 
 export const PLAYER_SKIN_META: {

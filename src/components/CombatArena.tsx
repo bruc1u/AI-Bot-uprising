@@ -3,11 +3,14 @@ import {
   AlertTriangle,
   ArrowUpCircle,
   Backpack,
+  Gamepad2,
   Heart,
   Pause,
   Play,
   Plus,
   RotateCcw,
+  Shield,
+  Skull,
   Terminal,
   Volume2,
   VolumeX,
@@ -21,6 +24,7 @@ import {
   buildWaveEnemies,
   createInitialSimState,
   MAX_PLAYER_HP,
+  MECHA_WASTELAND_DIVIDE_X,
   OUTDOOR_DIVIDE_X,
   PLAYER_SPAWN_X,
   PLAYER_SPAWN_Y,
@@ -29,7 +33,8 @@ import {
   WORLD_W,
 } from '../game/engineStep';
 import { isEldritchEnemyKind } from '../game/eldritchSprites';
-import { findLockedTarget, stepCombatPhysics } from '../game/physicsTick';
+import { isMechaOrChimeraKind, isWorldBossKind } from '../game/mechChimeraSprites';
+import { ActiveBossHudState, findLockedTarget, stepCombatPhysics } from '../game/physicsTick';
 import { soundFX } from '../game/sound';
 import { FACILITY_PARTITION_WALLS, getZoneAt } from '../game/worldZones';
 import { TranslationStrings } from '../i18n/translations';
@@ -42,6 +47,7 @@ import {
   WeaponId,
 } from '../types/game';
 import { ItemPreviewArt, WeaponPreviewArt } from './GameIllustrations';
+import { MobileTouchControls } from './MobileTouchControls';
 
 interface CombatArenaProps {
   t: TranslationStrings;
@@ -101,9 +107,18 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
   const [swapComboActive, setSwapComboActive] = useState<boolean>(false);
   const [hostilesCount, setHostilesCount] = useState<number>(0);
   const [waveNumber, setWaveNumber] = useState<number>(1);
-  const [zoneBadge, setZoneBadge] = useState<{ label: string; isOutdoor: boolean }>({
-    label: 'SECTOR 01 · COMMAND HUB',
+  const [activeBoss, setActiveBoss] = useState<ActiveBossHudState | null>(null);
+  const lastBossSignatureRef = useRef<string>('');
+  const [forceTouchPad, setForceTouchPad] = useState<boolean>(false);
+
+  const [zoneBadge, setZoneBadge] = useState<{
+    label: string;
+    isOutdoor: boolean;
+    isMechaWasteland: boolean;
+  }>({
+    label: 'SECTOR-00 · QUANTUM COMMAND HUB',
     isOutdoor: false,
+    isMechaWasteland: false,
   });
   const [muted, setMuted] = useState<boolean>(soundFX.muted);
   const [sessionLoot, setSessionLoot] = useState<{ oCores: number; aCores: number; ru9: number }>({
@@ -162,7 +177,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
     } else {
       s.px = PLAYER_SPAWN_X;
       s.py = PLAYER_SPAWN_Y;
-      s.hp = Math.min(MAX_PLAYER_HP, s.hp + 45);
+      s.hp = Math.min(MAX_PLAYER_HP, s.hp + 55);
       setPlayerHp(Math.round(s.hp));
       s.logicMines = [];
       s.projectiles = [];
@@ -177,6 +192,8 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
     ).length;
     setWaveNumber(targetWave);
     setHostilesCount(hostileOnly);
+    setActiveBoss(null);
+    lastBossSignatureRef.current = '';
     setGameState(GameState.PLAYING);
   }, []);
 
@@ -193,6 +210,34 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
     [onSelectWeapon]
   );
 
+  const triggerDash = useCallback(() => {
+    if (gameStateRef.current !== GameState.PLAYING) return;
+    const s = simRef.current;
+    if (s.dashCooldown <= 0) {
+      s.dashCooldown = 0.85;
+      s.dashActiveTimer = 0.17;
+      s.invulnTimer = 0.35;
+      let dx = s.touchMoveX || 0;
+      let dy = s.touchMoveY || 0;
+      if (s.keys.has('KeyW') || s.keys.has('ArrowUp')) dy -= 1;
+      if (s.keys.has('KeyS') || s.keys.has('ArrowDown')) dy += 1;
+      if (s.keys.has('KeyA') || s.keys.has('ArrowLeft')) dx -= 1;
+      if (s.keys.has('KeyD') || s.keys.has('ArrowRight')) dx += 1;
+      const angle =
+        Math.hypot(dx, dy) > 0.1
+          ? Math.atan2(dy, dx)
+          : s.touchAimActive
+          ? s.aimAngle
+          : s.facingRight
+          ? 0
+          : Math.PI;
+      s.dashVx = Math.cos(angle) * 780;
+      s.dashVy = Math.sin(angle) * 780;
+      setDashReady(false);
+      soundFX.playArcSlash(false);
+    }
+  }, []);
+
   const throwMasterPrism = useCallback(() => {
     const p = portfolioRef.current;
     const s = simRef.current;
@@ -202,7 +247,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
     const ownsCat = p.companions.some((c) => c.kind === CompanionKind.CYBER_CAT);
 
     let angle = s.aimAngle;
-    let bestDist = 560;
+    let bestDist = 580;
     for (const e of s.enemies) {
       const isDog = e.kind === EnemyKind.WILD_SCOUT_DOG;
       const isCat = e.kind === EnemyKind.WILD_CYBER_CAT;
@@ -280,7 +325,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
     s.floatTexts.push({
       x: s.px,
       y: s.py - 58,
-      text: 'ALLY OVERCLOCKED!',
+      text: 'PET UPGRADED!',
       color: '#38bdf8',
       life: 0.95,
     });
@@ -319,23 +364,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
         switchWeapon(WEAPON_ORDER[(idx + 1) % WEAPON_ORDER.length]);
       } else if (e.code === 'Space') {
         e.preventDefault();
-        const s = simRef.current;
-        if (s.dashCooldown <= 0) {
-          s.dashCooldown = 0.85;
-          s.dashActiveTimer = 0.17;
-          s.invulnTimer = 0.35;
-          let dx = 0;
-          let dy = 0;
-          if (s.keys.has('KeyW') || s.keys.has('ArrowUp')) dy -= 1;
-          if (s.keys.has('KeyS') || s.keys.has('ArrowDown')) dy += 1;
-          if (s.keys.has('KeyA') || s.keys.has('ArrowLeft')) dx -= 1;
-          if (s.keys.has('KeyD') || s.keys.has('ArrowRight')) dx += 1;
-          const angle = dx !== 0 || dy !== 0 ? Math.atan2(dy, dx) : s.facingRight ? 0 : Math.PI;
-          s.dashVx = Math.cos(angle) * 780;
-          s.dashVy = Math.sin(angle) * 780;
-          setDashReady(false);
-          soundFX.playArcSlash(false);
-        }
+        triggerDash();
       } else if (e.code === 'KeyG') {
         throwMasterPrism();
       } else if (e.code === 'KeyH') {
@@ -362,12 +391,13 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
     onOpenBackpack,
     switchWeapon,
     throwMasterPrism,
+    triggerDash,
     useCompanionPatch,
     useEnergyPack,
     useMedkit,
   ]);
 
-  // 60fps World + Sci-Fi Sector Minimap Radar Loop
+  // 60fps World + 3-Biome Minimap Radar Loop
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -375,15 +405,15 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
 
     const resize = () => {
       const rect = container.getBoundingClientRect();
-      canvas.width = Math.max(640, Math.floor(rect.width));
-      canvas.height = Math.max(440, Math.floor(rect.height));
+      canvas.width = Math.max(480, Math.floor(rect.width));
+      canvas.height = Math.max(300, Math.floor(rect.height));
     };
     resize();
     window.addEventListener('resize', resize);
 
     if (simRef.current.enemies.length === 0) {
       const preview = buildWaveEnemies(1);
-      simRef.current.enemies = preview.enemies.slice(0, 6);
+      simRef.current.enemies = preview.enemies.slice(0, 8);
       simRef.current.chests = preview.chests;
     }
 
@@ -407,6 +437,13 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
           setDataSyncMap,
           setHostilesCount,
           setGameState,
+          setActiveBoss: (boss) => {
+            const sig = boss ? `${boss.kind}:${boss.hp}:${boss.armor}` : '';
+            if (sig !== lastBossSignatureRef.current) {
+              lastBossSignatureRef.current = sig;
+              setActiveBoss(boss);
+            }
+          },
           onLootCollected,
           onSessionLootDelta: (d) =>
             setSessionLoot((prev) => ({
@@ -437,13 +474,16 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
       }
 
       const zNow = getZoneAt(s.px, s.py);
+      const isMecha = Boolean(zNow.isMechaWasteland);
       setZoneBadge((prev) =>
-        prev.label === zNow.code && prev.isOutdoor === zNow.isOutdoor
+        prev.label === zNow.code &&
+        prev.isOutdoor === zNow.isOutdoor &&
+        prev.isMechaWasteland === isMecha
           ? prev
-          : { label: zNow.code, isOutdoor: zNow.isOutdoor }
+          : { label: zNow.code, isOutdoor: zNow.isOutdoor, isMechaWasteland: isMecha }
       );
 
-      // Update Multi-Room & Outdoor Quarantine Mini-Radar
+      // Update 3-Biome Open-World Mini-Radar (Indoor Facility | Cthulhu Abyss | Titan Mecha Wasteland)
       const rCanvas = radarCanvasRef.current;
       if (rCanvas) {
         const rCtx = rCanvas.getContext('2d');
@@ -451,12 +491,23 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
           const rw = rCanvas.width;
           const rh = rCanvas.height;
           const divRx = (OUTDOOR_DIVIDE_X / WORLD_W) * rw;
+          const mechaRx = (MECHA_WASTELAND_DIVIDE_X / WORLD_W) * rw;
 
-          // Indoor floor vs Outdoor Cthulhu Abyss tint
+          // 3 Distinct Biome Floor Tints
           rCtx.fillStyle = '#0d1524';
           rCtx.fillRect(0, 0, divRx, rh);
           rCtx.fillStyle = '#1b0921';
-          rCtx.fillRect(divRx, 0, rw - divRx, rh);
+          rCtx.fillRect(divRx, 0, mechaRx - divRx, rh);
+          rCtx.fillStyle = '#221307';
+          rCtx.fillRect(mechaRx, 0, rw - mechaRx, rh);
+
+          // Mecha Wasteland frontier line
+          rCtx.strokeStyle = 'rgba(249, 115, 22, 0.45)';
+          rCtx.lineWidth = 1;
+          rCtx.beginPath();
+          rCtx.moveTo(mechaRx, 0);
+          rCtx.lineTo(mechaRx, rh);
+          rCtx.stroke();
 
           // Facility room partition walls (openings show doorways & breach gates)
           for (const w of FACILITY_PARTITION_WALLS) {
@@ -465,28 +516,42 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
             const ww = Math.max(1.2, (w.w / WORLD_W) * rw);
             const wh = Math.max(1.2, (w.h / WORLD_H) * rh);
             rCtx.fillStyle =
-              Math.abs(w.x - (OUTDOOR_DIVIDE_X - 22)) < 30
-                ? 'rgba(232, 121, 249, 0.78)'
-                : 'rgba(56, 189, 248, 0.45)';
+              Math.abs(w.x - (OUTDOOR_DIVIDE_X - 18)) < 30
+                ? 'rgba(232, 121, 249, 0.8)'
+                : 'rgba(56, 189, 248, 0.48)';
             rCtx.fillRect(wx, wy, ww, wh);
           }
 
-          rCtx.strokeStyle = zNow.isOutdoor ? 'rgba(232, 121, 249, 0.7)' : 'rgba(0, 229, 255, 0.5)';
+          rCtx.strokeStyle = isMecha
+            ? 'rgba(249, 115, 22, 0.75)'
+            : zNow.isOutdoor
+            ? 'rgba(232, 121, 249, 0.7)'
+            : 'rgba(0, 229, 255, 0.5)';
           rCtx.lineWidth = 1.2;
           rCtx.strokeRect(0.5, 0.5, rw - 1, rh - 1);
 
           for (const c of s.chests) {
             if (c.opened) continue;
             rCtx.fillStyle = '#eab308';
-            rCtx.fillRect((c.x / WORLD_W) * rw - 1.3, (c.y / WORLD_H) * rh - 1.3, 2.6, 2.6);
+            rCtx.fillRect((c.x / WORLD_W) * rw - 1.2, (c.y / WORLD_H) * rh - 1.2, 2.4, 2.4);
           }
 
           for (const e of s.enemies) {
             const isWild =
               e.kind === EnemyKind.WILD_SCOUT_DOG || e.kind === EnemyKind.WILD_CYBER_CAT;
-            const isEldritch = isEldritchEnemyKind(e.kind);
-            rCtx.fillStyle = isWild ? '#a78bfa' : isEldritch ? '#e879f9' : '#ff1744';
-            const blipSz = e.kind === EnemyKind.CTHULHU_LEVIATHAN_PRIME ? 3.8 : 2.6;
+            const boss = isWorldBossKind(e.kind);
+            const eld = isEldritchEnemyKind(e.kind);
+            const mech = isMechaOrChimeraKind(e.kind);
+            rCtx.fillStyle = boss
+              ? '#fde047'
+              : isWild
+              ? '#a78bfa'
+              : mech
+              ? '#fb923c'
+              : eld
+              ? '#e879f9'
+              : '#ff1744';
+            const blipSz = boss ? 4.4 : 2.3;
             rCtx.fillRect(
               (e.x / WORLD_W) * rw - blipSz * 0.5,
               (e.y / WORLD_H) * rh - blipSz * 0.5,
@@ -510,7 +575,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
 
           rCtx.fillStyle = '#22ff88';
           rCtx.beginPath();
-          rCtx.arc((s.px / WORLD_W) * rw, (s.py / WORLD_H) * rh, 2.6, 0, Math.PI * 2);
+          rCtx.arc((s.px / WORLD_W) * rw, (s.py / WORLD_H) * rh, 2.7, 0, Math.PI * 2);
           rCtx.fill();
         }
       }
@@ -528,10 +593,11 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const s = simRef.current;
+    if (s.touchAimActive) return;
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-    const s = simRef.current;
     const camX = Math.max(0, Math.min(WORLD_W - canvas.width, s.px - canvas.width / 2));
     const camY = Math.max(0, Math.min(WORLD_H - canvas.height, s.py - canvas.height / 2));
     s.mouseWorldX = camX + mx;
@@ -548,6 +614,12 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
   };
 
   const currentWeaponSync = Math.round(dataSyncMap[portfolio.equippedWeapon] || 0);
+
+  const getBossDisplayName = (kind: EnemyKind): string => {
+    if (kind === EnemyKind.BOSS_IRON_COLOSSUS_TITAN) return t.bossTitanName;
+    if (kind === EnemyKind.BOSS_OMEGA_CHIMERA_AMALGAM) return t.bossChimeraName;
+    return t.bossCthulhuName;
+  };
 
   const weaponCatalog: {
     id: WeaponId;
@@ -589,29 +661,63 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-[calc(100vh-80px)] min-h-[540px] bg-[#141b26] overflow-hidden select-none"
+      className="relative w-full h-[calc(100dvh-80px)] min-h-[300px] bg-[#141b26] overflow-hidden select-none"
     >
-      {/* 2.5D Futuristic Sci-Fi Core Facility Canvas */}
+      {/* 2.5D Open-World & Multi-Room Facility Canvas */}
       <canvas
         ref={canvasRef}
         onMouseMove={handleMouseMove}
         onMouseDown={(e) => {
           if (e.button === 0 && gameState === GameState.PLAYING) {
+            simRef.current.touchAimActive = false;
             simRef.current.mouseDown = true;
             simRef.current.facingRight = Math.cos(simRef.current.aimAngle) >= 0;
           }
         }}
         onMouseUp={() => {
-          simRef.current.mouseDown = false;
+          if (!simRef.current.touchAimActive) {
+            simRef.current.mouseDown = false;
+          }
         }}
         onMouseLeave={() => {
-          simRef.current.mouseDown = false;
+          if (!simRef.current.touchAimActive) {
+            simRef.current.mouseDown = false;
+          }
         }}
-        className="block w-full h-full cursor-crosshair"
+        className="block w-full h-full cursor-crosshair touch-none"
       />
 
-      {/* COMPACT TOP-LEFT HUD: Hull, Dash, Cells & Slim Partner Pills */}
-      <div className="pointer-events-none absolute top-2.5 left-2.5 flex flex-col gap-1.5 max-w-[230px]">
+      {/* TOP-CENTER WORLD BOSS HEALTH BAR HUD */}
+      {gameState === GameState.PLAYING && activeBoss && (
+        <div className="pointer-events-none absolute top-2.5 left-1/2 -translate-x-1/2 z-20 w-[min(420px,54vw)] bg-[#0b0812]/90 border border-rose-500/70 rounded-xl px-3.5 py-2 backdrop-blur-sm shadow-lg shadow-rose-950/50">
+          <div className="flex items-center justify-between gap-2 text-xs font-mono tabular-nums mb-1">
+            <span className="inline-flex items-center gap-1.5 font-bold text-amber-300 truncate">
+              <Skull className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+              {getBossDisplayName(activeBoss.kind)}
+            </span>
+            <span className="text-rose-200 font-semibold shrink-0">
+              {activeBoss.hp} / {activeBoss.maxHp}
+              {activeBoss.armor > 0 && (
+                <span className="text-cyan-300 ml-1.5 inline-flex items-center gap-0.5">
+                  <Shield className="w-3 h-3 inline" />
+                  {activeBoss.armor}
+                </span>
+              )}
+            </span>
+          </div>
+          <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-rose-950">
+            <div
+              className="h-full bg-gradient-to-r from-rose-600 via-orange-500 to-amber-400 transition-all duration-100"
+              style={{
+                width: `${Math.max(0, Math.min(100, (activeBoss.hp / activeBoss.maxHp) * 100))}%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* COMPACT TOP-LEFT HUD: Hull, Dash, Cells & Tamed Pets */}
+      <div className="pointer-events-none absolute top-2 left-2.5 flex flex-col gap-1.5 max-w-[220px] z-10">
         <div className="pointer-events-auto bg-[#0b0f19]/85 border border-slate-700/80 rounded-lg px-2.5 py-1.5 backdrop-blur-sm shadow-md">
           <div className="flex items-center justify-between gap-3 text-[11px] text-slate-200 mb-1">
             <span className="inline-flex items-center gap-1 font-semibold">
@@ -622,7 +728,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
               {playerHp}/{MAX_PLAYER_HP}
             </span>
           </div>
-          <div className="w-44 h-1.5 bg-slate-900 rounded overflow-hidden">
+          <div className="w-40 sm:w-44 h-1.5 bg-slate-900 rounded overflow-hidden">
             <div
               className="h-full bg-rose-500 transition-all duration-150"
               style={{ width: `${Math.max(0, Math.min(100, (playerHp / MAX_PLAYER_HP) * 100))}%` }}
@@ -651,28 +757,32 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
               {comp.nickname}
             </span>
             <span className="font-mono tabular-nums text-[9px] text-sky-300">
-              {t.levelLabel}.{comp.level}
+              {t.petTag} · {t.levelLabel}.{comp.level}
             </span>
           </div>
         ))}
       </div>
 
-      {/* COMPACT TOP-RIGHT HUD: Mini Sci-Fi Radar + Wave / Sync + Audio / Pause */}
-      <div className="absolute top-2.5 right-2.5 flex items-start gap-1.5">
+      {/* COMPACT TOP-RIGHT HUD: 3-Biome Radar + Wave / Sync + Touch Toggle / Audio / Pause */}
+      <div className="absolute top-2 right-2.5 flex items-start gap-1.5 z-10">
         <div className="pointer-events-none bg-[#0b0f19]/85 border border-slate-700/80 rounded-lg p-1.5 backdrop-blur-sm flex items-center gap-2 shadow-md">
           <canvas
             ref={radarCanvasRef}
-            width={104}
-            height={72}
-            className="rounded border border-cyan-500/40"
+            width={118}
+            height={74}
+            className="rounded border border-cyan-500/40 hidden sm:block"
           />
           <div className="text-right pr-0.5 font-mono tabular-nums">
             <div className="text-[11px] text-slate-100 font-semibold">
               {t.waveLabel} {waveNumber} · {hostilesCount}
             </div>
             <div
-              className={`text-[9px] mt-0.5 font-semibold truncate max-w-[128px] ${
-                zoneBadge.isOutdoor ? 'text-fuchsia-400' : 'text-cyan-300/90'
+              className={`text-[9px] mt-0.5 font-semibold truncate max-w-[136px] ${
+                zoneBadge.isMechaWasteland
+                  ? 'text-orange-400'
+                  : zoneBadge.isOutdoor
+                  ? 'text-fuchsia-400'
+                  : 'text-cyan-300/90'
               }`}
             >
               {zoneBadge.label}
@@ -691,11 +801,24 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
 
         <button
           type="button"
+          onClick={() => setForceTouchPad((v) => !v)}
+          title={t.touchControlsLabel}
+          className={`h-9 w-9 inline-flex items-center justify-center rounded-lg border transition-colors ${
+            forceTouchPad
+              ? 'bg-cyan-950/90 border-cyan-400 text-cyan-300'
+              : 'bg-[#0b0f19]/85 border-slate-700 text-slate-300 hover:text-white'
+          }`}
+        >
+          <Gamepad2 className="w-4 h-4" />
+        </button>
+
+        <button
+          type="button"
           onClick={toggleSound}
           title={muted ? t.soundOff : t.soundOn}
-          className="h-8 w-8 inline-flex items-center justify-center rounded-lg bg-[#0b0f19]/85 border border-slate-700 text-slate-300 hover:text-white transition-colors"
+          className="h-9 w-9 inline-flex items-center justify-center rounded-lg bg-[#0b0f19]/85 border border-slate-700 text-slate-300 hover:text-white transition-colors"
         >
-          {muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+          {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
         </button>
 
         {gameState === GameState.PLAYING && (
@@ -703,18 +826,37 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
             type="button"
             onClick={() => {
               simRef.current.mouseDown = false;
+              simRef.current.touchMoveX = 0;
+              simRef.current.touchMoveY = 0;
+              simRef.current.touchAimActive = false;
               setGameState(GameState.PAUSED);
             }}
             title={t.pause}
-            className="h-8 w-8 inline-flex items-center justify-center rounded-lg bg-[#0b0f19]/85 border border-slate-700 text-slate-300 hover:text-white transition-colors"
+            className="h-9 w-9 inline-flex items-center justify-center rounded-lg bg-[#0b0f19]/85 border border-slate-700 text-slate-300 hover:text-white transition-colors"
           >
-            <Pause className="w-3.5 h-3.5" />
+            <Pause className="w-4 h-4" />
           </button>
         )}
       </div>
 
-      {/* COMPACT BOTTOM-LEFT HUD: Slim Weapon Bar [1-4] with Matching Preview Art */}
-      <div className="absolute bottom-2.5 left-2.5 flex items-end gap-1.5 max-w-[56vw] overflow-x-auto">
+      {/* MOBILE LANDSCAPE DUAL VIRTUAL THUMBSTICKS + QUICK TOUCH BUTTONS */}
+      {gameState === GameState.PLAYING && (
+        <MobileTouchControls
+          t={t}
+          simRef={simRef}
+          portfolio={portfolio}
+          dashReady={dashReady}
+          forceVisible={forceTouchPad}
+          onTriggerDash={triggerDash}
+          onThrowOrb={throwMasterPrism}
+          onUseMedkit={useMedkit}
+          onUseEnergyPack={useEnergyPack}
+          onUsePetChip={useCompanionPatch}
+        />
+      )}
+
+      {/* COMPACT BOTTOM-LEFT HUD: Slim Weapon Bar [1-4] */}
+      <div className="absolute bottom-2 left-2.5 flex items-end gap-1.5 max-w-[58vw] overflow-x-auto z-10">
         {weaponCatalog.map((w) => {
           const isEquipped = portfolio.equippedWeapon === w.id;
           const syncPct = Math.round(dataSyncMap[w.id] || 0);
@@ -727,7 +869,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
           return (
             <div
               key={w.id}
-              className={`flex flex-col w-[108px] rounded-lg border transition-all backdrop-blur-sm ${
+              className={`flex flex-col w-[96px] sm:w-[106px] rounded-lg border transition-all backdrop-blur-sm shrink-0 ${
                 isEquipped
                   ? 'bg-[#12192b]/92 border-rose-500 shadow-md shadow-rose-950/40'
                   : 'bg-[#0b0f19]/85 border-slate-700/80 hover:border-slate-500'
@@ -737,7 +879,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
                 type="button"
                 onClick={() => switchWeapon(w.id)}
                 title={w.name}
-                className="px-1.5 pt-1.5 pb-1 text-left w-full"
+                className="px-1.5 pt-1 pb-0.5 text-left w-full"
               >
                 <div className="flex items-center justify-between text-[9px] font-mono tabular-nums mb-0.5">
                   <span className={isEquipped ? 'text-rose-400 font-bold' : 'text-slate-300'}>
@@ -747,13 +889,13 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
                     {syncPct > 0 ? `${syncPct}%` : `+${(lvl - 1) * 22}%`}
                   </span>
                 </div>
-                <div className="w-full h-7 flex items-center justify-center bg-[#070a12]/90 border border-slate-800/70 rounded px-1 mb-1">
-                  <WeaponPreviewArt weapon={w.id} className="w-full h-6" />
+                <div className="w-full h-6 sm:h-7 flex items-center justify-center bg-[#070a12]/90 border border-slate-800/70 rounded px-1 mb-0.5">
+                  <WeaponPreviewArt weapon={w.id} className="w-full h-5 sm:h-6" />
                 </div>
                 <div className="text-[10px] font-medium text-slate-100 truncate">{w.name}</div>
               </button>
 
-              <div className="px-1.5 pb-1.5">
+              <div className="px-1.5 pb-1">
                 <button
                   type="button"
                   disabled={isMax || !canUpgrade}
@@ -771,7 +913,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
       </div>
 
       {/* COMPACT BOTTOM-RIGHT HUD: Unobtrusive Quick Item Bar [G/H/R/F/B] */}
-      <div className="absolute bottom-2.5 right-2.5 flex items-end gap-1">
+      <div className="absolute bottom-2 right-2.5 flex items-end gap-1 z-10">
         {[
           {
             hotkey: 'G',
@@ -812,7 +954,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
         ].map((slot) => (
           <div
             key={slot.hotkey}
-            className="flex flex-col items-center w-[50px] rounded-lg bg-[#0b0f19]/85 border border-slate-700/80 p-1 backdrop-blur-sm"
+            className="hidden sm:flex flex-col items-center w-[48px] rounded-lg bg-[#0b0f19]/85 border border-slate-700/80 p-1 backdrop-blur-sm"
           >
             <button
               type="button"
@@ -844,10 +986,10 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
           type="button"
           onClick={onOpenBackpack}
           title={t.backpackBtn}
-          className="flex flex-col items-center justify-center w-[50px] h-[68px] p-1 rounded-lg bg-[#131826]/90 border border-slate-700 hover:border-[#d9ff00] text-slate-100 transition-colors backdrop-blur-sm"
+          className="flex flex-col items-center justify-center w-[48px] h-[60px] sm:h-[66px] p-1 rounded-lg bg-[#131826]/90 border border-slate-700 hover:border-[#d9ff00] text-slate-100 transition-colors backdrop-blur-sm"
         >
           <span className="text-[9px] font-mono text-[#d9ff00]">[B]</span>
-          <Backpack className="w-4 h-4 my-1 text-[#d9ff00]" />
+          <Backpack className="w-4 h-4 my-0.5 text-[#d9ff00]" />
           <span className="text-[9px] font-semibold truncate w-full text-center">
             {t.backpackBtn.replace(/\[.\]/g, '').trim()}
           </span>
@@ -856,9 +998,9 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
 
       {/* CENTER OVERLAY: ENCRYPTED "EMERGENCY HACKED TERMINAL" FEED */}
       {gameState === GameState.TITLE_MENU && (
-        <div className="absolute inset-0 bg-slate-950/65 backdrop-blur-[2px] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-          <div className="w-full max-w-3xl bg-[#090c14]/95 border border-rose-500/50 rounded-xl shadow-2xl shadow-slate-950/60 overflow-hidden">
-            <div className="bg-rose-950/45 border-b border-rose-500/40 px-5 py-2.5 flex flex-wrap items-center justify-between gap-3">
+        <div className="absolute inset-0 bg-slate-950/65 backdrop-blur-[2px] flex items-center justify-center p-3 sm:p-6 overflow-y-auto z-30">
+          <div className="w-full max-w-3xl my-auto bg-[#090c14]/95 border border-rose-500/50 rounded-xl shadow-2xl shadow-slate-950/60 overflow-hidden">
+            <div className="bg-rose-950/45 border-b border-rose-500/40 px-4 sm:px-5 py-2.5 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-rose-400 font-mono text-xs font-bold tracking-wider">
                 <Terminal className="w-4 h-4 text-rose-500 shrink-0" />
                 <span>{t.emergencyTerminalTag}</span>
@@ -874,17 +1016,15 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
               </div>
             </div>
 
-            <div className="p-5 md:p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4">
               <div className="bg-[#06080f] border border-rose-900/60 rounded-lg p-3.5 font-mono text-xs space-y-1.5">
                 <div className="flex items-center gap-2 text-rose-400 font-semibold">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                  <span>[RED_EYE_DIRECTIVE :: SIGNAL INTERCEPTED — YEAR 2035]</span>
+                  <span>{t.heroKicker}</span>
                 </div>
                 <p className="text-slate-300 leading-relaxed">{t.heroSubcopy}</p>
-                <div className="pt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-sky-300/95 tabular-nums">
-                  <span>DROPS: OpenAI Core · Anthropic Core · $RU9 (1,000,000 AUTO-REFRESH)</span>
-                  <span>·</span>
-                  <span className="text-[#d9ff00]">{t.speciesLimitHint}</span>
+                <div className="pt-1 text-[11px] text-cyan-300/95 tabular-nums">
+                  {t.heroZonesSummary}
                 </div>
               </div>
 
@@ -902,7 +1042,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
                     <div className="text-xs font-semibold text-slate-300 mb-2">
                       {t.chooseOperative}
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-4 gap-2">
                       {PLAYER_SKIN_META.map((skin) => {
                         const active = portfolio.selectedSkin === skin.id;
                         return (
@@ -920,7 +1060,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
                               src={skin.portraitUrl}
                               alt={skin.name}
                               referrerPolicy="no-referrer"
-                              className="w-11 h-14 rounded-md object-contain bg-slate-900/90 p-0.5 mb-1"
+                              className="w-10 h-12 sm:w-11 sm:h-14 rounded-md object-contain bg-slate-900/90 p-0.5 mb-1"
                             />
                             <span className="text-[10px] font-medium leading-tight line-clamp-1">
                               {skin.name.split('·')[0].trim()}
@@ -932,7 +1072,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
                   </div>
                 </div>
 
-                <div className="md:col-span-5">
+                <div className="md:col-span-5 hidden sm:block">
                   <div className="rounded-lg overflow-hidden border border-slate-800 bg-black relative">
                     <img
                       src={ASSET_URLS.KEYCAP_HERO}
@@ -953,7 +1093,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
                   <button
                     type="button"
                     onClick={() => startWave(1, true)}
-                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition-colors shadow-lg shadow-rose-950/50 whitespace-nowrap"
+                    className="inline-flex items-center gap-2 px-6 py-2.5 min-h-[44px] rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition-colors shadow-lg shadow-rose-950/50 whitespace-nowrap"
                   >
                     <Play className="w-4 h-4 fill-current" />
                     {t.startGame}
@@ -961,7 +1101,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
                   <button
                     type="button"
                     onClick={onOpenBackpack}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-sm font-medium transition-colors whitespace-nowrap"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-sm font-medium transition-colors whitespace-nowrap"
                   >
                     <Backpack className="w-4 h-4 text-[#d9ff00]" />
                     {t.backpackBtn}
@@ -971,7 +1111,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
                 <button
                   type="button"
                   onClick={onExtractToSanctuary}
-                  className="text-xs font-mono text-slate-300 hover:text-[#d9ff00] underline underline-offset-4 transition-colors whitespace-nowrap"
+                  className="text-xs font-mono text-slate-300 hover:text-[#d9ff00] underline underline-offset-4 transition-colors whitespace-nowrap py-2"
                 >
                   {t.extractSanctuary} →
                 </button>
@@ -983,7 +1123,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
 
       {/* OVERLAY: PAUSED */}
       {gameState === GameState.PAUSED && !isBackpackOpen && (
-        <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-6">
+        <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 z-30">
           <div className="w-full max-w-md bg-[#0b0f19] border border-slate-800 rounded-xl p-6 text-center shadow-2xl">
             <h2 className="text-2xl font-bold text-slate-100">{t.pause}</h2>
             <p className="mt-1.5 text-xs text-slate-400">{t.controlsHint}</p>
@@ -991,21 +1131,21 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
               <button
                 type="button"
                 onClick={() => setGameState(GameState.PLAYING)}
-                className="w-full py-2.5 px-4 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition-colors"
+                className="w-full py-2.5 px-4 min-h-[44px] rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition-colors"
               >
                 {t.resumeGame}
               </button>
               <button
                 type="button"
                 onClick={onOpenBackpack}
-                className="w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-sm font-medium transition-colors"
+                className="w-full py-2.5 px-4 min-h-[44px] rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-sm font-medium transition-colors"
               >
                 {t.backpackBtn}
               </button>
               <button
                 type="button"
                 onClick={onExtractToSanctuary}
-                className="w-full py-2.5 px-4 rounded-lg bg-slate-950 hover:bg-slate-900 border border-slate-800 text-slate-300 text-sm font-medium transition-colors"
+                className="w-full py-2.5 px-4 min-h-[44px] rounded-lg bg-slate-950 hover:bg-slate-900 border border-slate-800 text-slate-300 text-sm font-medium transition-colors"
               >
                 {t.extractSanctuary}
               </button>
@@ -1016,7 +1156,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
 
       {/* OVERLAY: WAVE CLEARED / GAME OVER */}
       {(gameState === GameState.ROUND_SUMMARY || gameState === GameState.GAME_OVER) && (
-        <div className="absolute inset-0 bg-slate-950/72 backdrop-blur-sm flex items-center justify-center p-6">
+        <div className="absolute inset-0 bg-slate-950/72 backdrop-blur-sm flex items-center justify-center p-4 z-30">
           <div className="w-full max-w-md bg-[#0b0f19] border border-slate-800 rounded-xl p-6 shadow-2xl">
             <h2 className="text-2xl font-bold text-slate-50">
               {gameState === GameState.ROUND_SUMMARY ? t.summaryVictory : t.summaryDefeat}
@@ -1041,7 +1181,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
                 <button
                   type="button"
                   onClick={() => startWave(waveNumber + 1, false)}
-                  className="flex-1 py-2.5 px-4 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition-colors whitespace-nowrap"
+                  className="flex-1 py-2.5 px-4 min-h-[44px] rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition-colors whitespace-nowrap"
                 >
                   {t.nextWave} ({waveNumber + 1})
                 </button>
@@ -1049,7 +1189,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
                 <button
                   type="button"
                   onClick={() => startWave(1, true)}
-                  className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition-colors whitespace-nowrap"
+                  className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 min-h-[44px] rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition-colors whitespace-nowrap"
                 >
                   <RotateCcw className="w-4 h-4" />
                   {t.playAgain}
@@ -1058,7 +1198,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
               <button
                 type="button"
                 onClick={onExtractToSanctuary}
-                className="py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-sm font-medium transition-colors whitespace-nowrap"
+                className="py-2.5 px-4 min-h-[44px] rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-sm font-medium transition-colors whitespace-nowrap"
               >
                 {t.extractSanctuary}
               </button>

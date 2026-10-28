@@ -10,13 +10,22 @@ import { isEldritchEnemyKind } from './eldritchSprites';
 import {
   ARENA_OBSTACLES,
   InternalEnemy,
+  MECHA_WASTELAND_DIVIDE_X,
   OUTDOOR_DIVIDE_X,
   SimState,
   WORLD_H,
   WORLD_W,
 } from './engineStep';
+import { isMechaOrChimeraKind, isWorldBossKind } from './mechChimeraSprites';
 import { soundFX } from './sound';
 import { getEnemyCombatAnchorsWorld, getPlayerWeaponMuzzleWorld } from './sprites';
+
+export interface ActiveBossHudState {
+  kind: EnemyKind;
+  hp: number;
+  maxHp: number;
+  armor: number;
+}
 
 export interface TickCallbacks {
   pState: PlayerPortfolio;
@@ -27,6 +36,7 @@ export interface TickCallbacks {
   setDataSyncMap: (map: Record<WeaponId, number>) => void;
   setHostilesCount: (count: number) => void;
   setGameState: (st: GameState) => void;
+  setActiveBoss?: (boss: ActiveBossHudState | null) => void;
   onLootCollected: (delta: {
     ru9?: number;
     oCores?: number;
@@ -66,8 +76,8 @@ function clampObs(nx: number, ny: number, radius: number) {
 }
 
 /**
- * Guides enemies and companions cleanly through open Blast Doorways & Quarantine Breach Gates
- * when separated from their target by an interior or quarantine partition wall.
+ * Guides enemies and pets cleanly through open Blast Doorways & Quarantine Breach Gates
+ * across the expanded 7200x4600 6-Room Facility + Open-World Cthulhu & Mecha biomes.
  */
 function steerThroughFacilityDoors(
   ex: number,
@@ -78,52 +88,60 @@ function steerThroughFacilityDoors(
   const pickNearest = (val: number, options: number[]) =>
     options.reduce((best, cur) => (Math.abs(cur - val) < Math.abs(best - val) ? cur : best), options[0]);
 
-  // 1. Crossing the Eastern Quarantine Blast Wall (x ≈ 2680)
-  if ((ex < 2655 && tx > 2708) || (ex > 2708 && tx < 2655)) {
-    const gateY = pickNearest(ey, [580, 1620, 2660]);
-    if (Math.abs(ey - gateY) > 135) {
-      return { wx: ex < 2680 ? 2610 : 2755, wy: gateY };
+  // 1. Crossing the Eastern Quarantine Blast Wall (x ≈ 2680) — 4 Breached Gates
+  if ((ex < 2652 && tx > 2710) || (ex > 2710 && tx < 2652)) {
+    const gateY = pickNearest(ey, [600, 1850, 3050, 4050]);
+    if (Math.abs(ey - gateY) > 155) {
+      return { wx: ex < 2680 ? 2605 : 2755, wy: gateY };
     }
     return { wx: tx, wy: gateY };
   }
 
-  // Indoor partition doorway routing (only inside facility x < 2670)
+  // 2. Indoor 6-Room Partition Doorway Routing (x < 2670)
   if (ex < 2670 && tx < 2670) {
-    // North horizontal wall (y ≈ 980)
-    if ((ey < 955 && ty > 1005) || (ey > 1005 && ty < 955)) {
-      const doorX = pickNearest(ex, [510, 1390, 2250]);
-      if (Math.abs(ex - doorX) > 120) {
-        return { wx: doorX, wy: ey < 980 ? 910 : 1045 };
+    // Horizontal Wall 1 (y ≈ 1120): doors at x = [520, 1400, 2260]
+    if ((ey < 1094 && ty > 1146) || (ey > 1146 && ty < 1094)) {
+      const doorX = pickNearest(ex, [520, 1400, 2260]);
+      if (Math.abs(ex - doorX) > 135) {
+        return { wx: doorX, wy: ey < 1120 ? 1050 : 1190 };
       }
       return { wx: doorX, wy: ty };
     }
-    // South horizontal wall (y ≈ 2220)
-    if ((ey < 2195 && ty > 2245) || (ey > 2245 && ty < 2195)) {
-      const doorX = pickNearest(ex, [510, 1790]);
-      if (Math.abs(ex - doorX) > 125) {
-        return { wx: doorX, wy: ey < 2220 ? 2150 : 2285 };
+    // Horizontal Wall 2 (y ≈ 2560): doors at x = [520, 1770]
+    if ((ey < 2534 && ty > 2586) || (ey > 2586 && ty < 2534)) {
+      const doorX = pickNearest(ex, [520, 1770]);
+      if (Math.abs(ex - doorX) > 140) {
+        return { wx: doorX, wy: ey < 2560 ? 2490 : 2630 };
       }
       return { wx: doorX, wy: ty };
     }
-    // Vertical wall between Server Vault & Foundry (x ≈ 1780, y < 980)
-    if (ey < 980 && ty < 980 && ((ex < 1755 && tx > 1805) || (ex > 1805 && tx < 1755))) {
-      if (Math.abs(ey - 560) > 110) {
-        return { wx: ex < 1780 ? 1710 : 1850, wy: 560 };
+    // Horizontal Wall 3 (y ≈ 3540): doors at x = [710, 1870]
+    if ((ey < 3514 && ty > 3566) || (ey > 3566 && ty < 3514)) {
+      const doorX = pickNearest(ex, [710, 1870]);
+      if (Math.abs(ex - doorX) > 150) {
+        return { wx: doorX, wy: ey < 3540 ? 3470 : 3610 };
       }
-      return { wx: tx, wy: 560 };
+      return { wx: doorX, wy: ty };
     }
-    // Vertical wall between Cryo Lab & Command Hub (x ≈ 920, 980 <= y <= 2220)
+    // Vertical Wall 1 between Server Vault & Foundry (x ≈ 1780, y < 1120): door at y = 610
+    if (ey < 1120 && ty < 1120 && ((ex < 1754 && tx > 1806) || (ex > 1806 && tx < 1754))) {
+      if (Math.abs(ey - 610) > 130) {
+        return { wx: ex < 1780 ? 1710 : 1850, wy: 610 };
+      }
+      return { wx: tx, wy: 610 };
+    }
+    // Vertical Wall 2 between Cryo Lab & Command Hub (x ≈ 920, 1120 <= y <= 2560): door at y = 1840
     if (
-      ey >= 980 &&
-      ey <= 2220 &&
-      ty >= 980 &&
-      ty <= 2220 &&
-      ((ex < 895 && tx > 945) || (ex > 945 && tx < 895))
+      ey >= 1120 &&
+      ey <= 2560 &&
+      ty >= 1120 &&
+      ty <= 2560 &&
+      ((ex < 894 && tx > 946) || (ex > 946 && tx < 894))
     ) {
-      if (Math.abs(ey - 1600) > 130) {
-        return { wx: ex < 920 ? 855 : 985, wy: 1600 };
+      if (Math.abs(ey - 1840) > 150) {
+        return { wx: ex < 920 ? 850 : 990, wy: 1840 };
       }
-      return { wx: tx, wy: 1600 };
+      return { wx: tx, wy: 1840 };
     }
   }
 
@@ -132,9 +150,12 @@ function steerThroughFacilityDoors(
 
 export function findLockedTarget(s: SimState): InternalEnemy | undefined {
   let best: InternalEnemy | undefined;
-  let bestDist = 310;
+  let bestDist = 340;
   for (const e of s.enemies) {
-    const d = Math.hypot(e.x - s.mouseWorldX, e.y - s.mouseWorldY);
+    if (e.kind === EnemyKind.WILD_SCOUT_DOG || e.kind === EnemyKind.WILD_CYBER_CAT) continue;
+    const refX = s.touchAimActive ? s.px + Math.cos(s.aimAngle) * 220 : s.mouseWorldX;
+    const refY = s.touchAimActive ? s.py - 32 + Math.sin(s.aimAngle) * 220 : s.mouseWorldY;
+    const d = Math.hypot(e.x - refX, e.y - refY);
     if (d < bestDist) {
       bestDist = d;
       best = e;
@@ -159,22 +180,30 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
     cb.onLootCollected({ ammoCells: 3 });
   }
 
-  // Eerie drifting abyssal spores when exploring the Outdoor Eldritch Wastes
-  if (s.px >= OUTDOOR_DIVIDE_X - 180 && Math.random() < 0.35 && s.particles.length < 95) {
+  // Biome atmospheric particles (Cthulhu Abyss spores vs Titan Mecha Wasteland embers)
+  if (s.px >= OUTDOOR_DIVIDE_X - 180 && Math.random() < 0.35 && s.particles.length < 110) {
+    const inMechaWasteland = s.px >= MECHA_WASTELAND_DIVIDE_X;
     s.particles.push({
-      x: s.px + (Math.random() - 0.5) * 900,
-      y: s.py + (Math.random() - 0.5) * 620,
-      vx: -14 + (Math.random() - 0.5) * 18,
-      vy: -22 - Math.random() * 18,
-      size: 3.4,
-      color: Math.random() < 0.5 ? '#c026d3' : '#ff1744',
+      x: s.px + (Math.random() - 0.5) * 940,
+      y: s.py + (Math.random() - 0.5) * 640,
+      vx: -14 + (Math.random() - 0.5) * 22,
+      vy: -22 - Math.random() * 20,
+      size: inMechaWasteland ? 3.2 : 3.4,
+      color: inMechaWasteland
+        ? Math.random() < 0.65
+          ? '#f97316'
+          : '#38bdf8'
+        : Math.random() < 0.5
+        ? '#c026d3'
+        : '#ff1744',
       life: 0.9,
       maxLife: 0.9,
     });
   }
 
-  let mx = 0;
-  let my = 0;
+  // Combine Keyboard WASD/Arrows with Mobile Analog Left Thumbstick
+  let mx = s.touchMoveX || 0;
+  let my = s.touchMoveY || 0;
   if (s.keys.has('KeyW') || s.keys.has('ArrowUp')) my -= 1;
   if (s.keys.has('KeyS') || s.keys.has('ArrowDown')) my += 1;
   if (s.keys.has('KeyA') || s.keys.has('ArrowLeft')) mx -= 1;
@@ -198,28 +227,36 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
       life: 0.16,
       maxLife: 0.16,
     });
-  } else if (mx !== 0 || my !== 0) {
-    const len = Math.hypot(mx, my);
-    const c = clampObs(s.px + (mx / len) * 310 * dt, s.py + (my / len) * 310 * dt, 18);
+  } else if (Math.hypot(mx, my) > 0.06) {
+    const rawLen = Math.hypot(mx, my);
+    const speedRatio = Math.min(1, rawLen);
+    const nx = mx / rawLen;
+    const ny = my / rawLen;
+    const c = clampObs(s.px + nx * 315 * speedRatio * dt, s.py + ny * 315 * speedRatio * dt, 18);
     s.px = c.x;
     s.py = c.y;
     s.isMoving = true;
-    s.moveDirX = mx;
-    s.walkPhase += dt * 11.5;
+    s.moveDirX = nx;
+    s.walkPhase += dt * (11.5 * Math.max(0.55, speedRatio));
 
-    if (!s.mouseDown && s.swingTimer <= 0 && s.recoilTimer <= 0) {
-      if (mx < 0) s.facingRight = false;
-      else if (mx > 0) s.facingRight = true;
+    if (!s.mouseDown && !s.touchAimActive && s.swingTimer <= 0 && s.recoilTimer <= 0) {
+      if (nx < -0.1) s.facingRight = false;
+      else if (nx > 0.1) s.facingRight = true;
     }
 
     if (Math.random() < 0.2) {
       s.particles.push({
         x: s.px + (Math.random() - 0.5) * 10,
         y: s.py + 7,
-        vx: -(mx / len) * 24,
+        vx: -nx * 24,
         vy: -8,
         size: 3,
-        color: s.px >= OUTDOOR_DIVIDE_X ? '#c026d3' : '#67e8f9',
+        color:
+          s.px >= MECHA_WASTELAND_DIVIDE_X
+            ? '#fb923c'
+            : s.px >= OUTDOOR_DIVIDE_X
+            ? '#c026d3'
+            : '#67e8f9',
         life: 0.2,
         maxLife: 0.2,
       });
@@ -229,8 +266,10 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
     s.moveDirX = 0;
   }
 
-  s.aimAngle = Math.atan2(s.mouseWorldY - (s.py - 36), s.mouseWorldX - s.px);
-  if (s.mouseDown || s.swingTimer > 0 || s.recoilTimer > 0) {
+  if (!s.touchAimActive) {
+    s.aimAngle = Math.atan2(s.mouseWorldY - (s.py - 36), s.mouseWorldX - s.px);
+  }
+  if (s.mouseDown || s.touchAimActive || s.swingTimer > 0 || s.recoilTimer > 0) {
     s.facingRight = Math.cos(s.aimAngle) >= 0;
   }
 
@@ -267,8 +306,11 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
     e.hitFlash = 0.1;
 
     const isEld = isEldritchEnemyKind(e.kind);
+    const isMecha = isMechaOrChimeraKind(e.kind);
     const coolant = isEld
       ? '#c026d3'
+      : isMecha
+      ? '#f97316'
       : e.kind === EnemyKind.ANTHROPIC_BULWARK
       ? '#00b4ff'
       : '#10b981';
@@ -287,7 +329,7 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
         maxLife: 0.42,
       });
     }
-    if (Math.random() < 0.3 && s.puddles.length < 56) {
+    if (Math.random() < 0.3 && s.puddles.length < 64) {
       s.puddles.push({
         x: e.x + (Math.random() - 0.5) * 16,
         y: e.y + 8,
@@ -302,7 +344,7 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
       text: resisting
         ? `${Math.round(finalDmg)} SYNC`
         : fromCompanion
-        ? `${Math.round(finalDmg)} ALLY`
+        ? `${Math.round(finalDmg)} PET`
         : `${Math.round(finalDmg)}`,
       color: resisting
         ? '#f59e0b'
@@ -320,7 +362,7 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
         s.lastKillWeapon = weaponUsed;
         for (const wKey of Object.keys(s.syncMap) as WeaponId[]) {
           if (wKey === weaponUsed) {
-            s.syncMap[wKey] = Math.min(100, (s.syncMap[wKey] || 0) + 16);
+            s.syncMap[wKey] = Math.min(100, (s.syncMap[wKey] || 0) + 15);
           } else {
             s.syncMap[wKey] = Math.max(0, (s.syncMap[wKey] || 0) - 14);
           }
@@ -328,14 +370,32 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
         cb.setDataSyncMap({ ...s.syncMap });
       }
 
-      // Bot & Cthulhu Horror kills drop ONLY OpenAI Core / Anthropic Core
+      // Enemy & Boss Core Drops (OpenAI Core & Anthropic Core)
       const chance = 0.85 + (!fromCompanion && weaponUsed === WeaponId.CHAINSAW_SWORD ? 0.5 : 0);
       const qty =
         !fromCompanion && weaponUsed === WeaponId.CHAINSAW_SWORD && Math.random() < 0.45 ? 2 : 1;
 
-      if (e.kind === EnemyKind.CTHULHU_LEVIATHAN_PRIME) {
-        s.drops.push({ id: `dco-${now}-${Math.random()}`, x: e.x - 16, y: e.y, kind: 'oCore', amount: 3 });
-        s.drops.push({ id: `dca-${now}-${Math.random()}`, x: e.x + 16, y: e.y, kind: 'aCore', amount: 3 });
+      if (e.kind === EnemyKind.BOSS_OMEGA_CHIMERA_AMALGAM) {
+        s.drops.push({ id: `doco-${now}-${Math.random()}`, x: e.x - 18, y: e.y, kind: 'oCore', amount: 6 });
+        s.drops.push({ id: `doca-${now}-${Math.random()}`, x: e.x + 18, y: e.y, kind: 'aCore', amount: 6 });
+      } else if (e.kind === EnemyKind.BOSS_IRON_COLOSSUS_TITAN) {
+        s.drops.push({ id: `dtto-${now}-${Math.random()}`, x: e.x - 18, y: e.y, kind: 'oCore', amount: 5 });
+        s.drops.push({ id: `dtta-${now}-${Math.random()}`, x: e.x + 18, y: e.y, kind: 'aCore', amount: 5 });
+      } else if (e.kind === EnemyKind.CTHULHU_LEVIATHAN_PRIME) {
+        s.drops.push({ id: `dco-${now}-${Math.random()}`, x: e.x - 16, y: e.y, kind: 'oCore', amount: 4 });
+        s.drops.push({ id: `dca-${now}-${Math.random()}`, x: e.x + 16, y: e.y, kind: 'aCore', amount: 4 });
+      } else if (e.kind === EnemyKind.ELITE_CHIMERA_JUGGERNAUT || e.kind === EnemyKind.LOGIC_WEAVER_ELITE) {
+        s.drops.push({ id: `deo-${now}-${Math.random()}`, x: e.x - 12, y: e.y, kind: 'oCore', amount: 2 });
+        s.drops.push({ id: `dea-${now}-${Math.random()}`, x: e.x + 12, y: e.y, kind: 'aCore', amount: 2 });
+      } else if (e.kind === EnemyKind.MUTATED_EXCAVATOR_BEHEMOTH) {
+        s.drops.push({ id: `dmbo-${now}-${Math.random()}`, x: e.x - 10, y: e.y, kind: 'oCore', amount: 1 });
+        s.drops.push({ id: `dmba-${now}-${Math.random()}`, x: e.x + 10, y: e.y, kind: 'aCore', amount: 2 });
+      } else if (e.kind === EnemyKind.MECH_SPIDER_ARACHNID) {
+        const spiderCore = Math.random() < 0.5 ? 'oCore' : 'aCore';
+        s.drops.push({ id: `dms-${now}-${Math.random()}`, x: e.x, y: e.y, kind: spiderCore, amount: 2 });
+      } else if (e.kind === EnemyKind.CHIMERA_HOUND_WEAVER) {
+        s.drops.push({ id: `dcho-${now}-${Math.random()}`, x: e.x - 8, y: e.y, kind: 'oCore', amount: 1 });
+        s.drops.push({ id: `dcha-${now}-${Math.random()}`, x: e.x + 8, y: e.y, kind: 'aCore', amount: 1 });
       } else if (e.kind === EnemyKind.SHOGGOTH_CORE_AMALGAM) {
         s.drops.push({ id: `dso-${now}-${Math.random()}`, x: e.x - 10, y: e.y, kind: 'oCore', amount: 1 });
         s.drops.push({ id: `dsa-${now}-${Math.random()}`, x: e.x + 10, y: e.y, kind: 'aCore', amount: 2 });
@@ -354,9 +414,6 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
         Math.random() < chance
       ) {
         s.drops.push({ id: `da-${now}-${Math.random()}`, x: e.x, y: e.y, kind: 'aCore', amount: qty });
-      } else if (e.kind === EnemyKind.LOGIC_WEAVER_ELITE) {
-        s.drops.push({ id: `deo-${now}-${Math.random()}`, x: e.x - 12, y: e.y, kind: 'oCore', amount: 2 });
-        s.drops.push({ id: `dea-${now}-${Math.random()}`, x: e.x + 12, y: e.y, kind: 'aCore', amount: 2 });
       }
       cb.onLootCollected({ kills: 1 });
     }
@@ -423,13 +480,13 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
             Math.cos(Math.atan2(e.y - s.py, e.x - s.px) - s.aimAngle)
           )
         );
-        if (d <= reach + 12 && (isEmp || ad < 1.3)) {
+        if (d <= reach + 16 && (isEmp || ad < 1.35)) {
           hit = true;
           if (isEmp) {
-            e.stunTimer = 2.2;
-            e.armor = 0;
+            e.stunTimer = isWorldBossKind(e.kind) ? 0.9 : 2.2;
+            e.armor = Math.max(0, e.armor - 65);
           }
-          damageEnemy(e, (isEmp ? 80 : 58) * lvlScale, WeaponId.ARC_BLADE, 3.2);
+          damageEnemy(e, (isEmp ? 82 : 60) * lvlScale, WeaponId.ARC_BLADE, 3.2);
         }
       }
       if (hit) cb.onLootCollected({ ammoCells: 1 });
@@ -443,7 +500,7 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
         x: s.px,
         y: s.py - 32,
         angle: s.aimAngle,
-        radius: 130,
+        radius: 134,
         color: '#fb923c',
         isEmp: false,
         life: 0.24,
@@ -458,9 +515,9 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
             Math.cos(Math.atan2(e.y - s.py, e.x - s.px) - s.aimAngle)
           )
         );
-        if (d <= 136 && ad < 1.35) {
+        if (d <= 142 && ad < 1.38) {
           hit = true;
-          damageEnemy(e, 78 * lvlScale, WeaponId.CHAINSAW_SWORD, 1.4);
+          damageEnemy(e, 80 * lvlScale, WeaponId.CHAINSAW_SWORD, 1.5);
         }
       }
       if (hit) cb.onLootCollected({ ammoCells: 1 });
@@ -470,8 +527,8 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
         s.recoilTimer = 0.14;
         cb.onLootCollected({ ammoCells: -1 });
         soundFX.playPulseLaser();
-        const x2 = muzzle.x + Math.cos(s.aimAngle) * 690;
-        const y2 = muzzle.y + Math.sin(s.aimAngle) * 690;
+        const x2 = muzzle.x + Math.cos(s.aimAngle) * 700;
+        const y2 = muzzle.y + Math.sin(s.aimAngle) * 700;
         s.lasers.push({
           x1: muzzle.x,
           y1: muzzle.y,
@@ -485,10 +542,11 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
         const dy = y2 - muzzle.y;
         const lenSq = dx * dx + dy * dy;
         for (const e of s.enemies) {
-          const targetY = e.y - 34;
+          const targetY = e.y - 36;
+          const hitTol = isWorldBossKind(e.kind) ? 58 : 44;
           const pr = Math.max(0, Math.min(1, ((e.x - muzzle.x) * dx + (targetY - muzzle.y) * dy) / lenSq));
-          if (Math.hypot(e.x - (muzzle.x + pr * dx), targetY - (muzzle.y + pr * dy)) < 44) {
-            damageEnemy(e, 52 * lvlScale, WeaponId.PULSE_LASER, 0.95);
+          if (Math.hypot(e.x - (muzzle.x + pr * dx), targetY - (muzzle.y + pr * dy)) < hitTol) {
+            damageEnemy(e, 54 * lvlScale, WeaponId.PULSE_LASER, 1.0);
           }
         }
         for (const m of s.logicMines) {
@@ -503,7 +561,7 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
       }
     } else if (s.weapon === WeaponId.DISRUPTOR_CANNON) {
       if (pState.ammoCells >= 2) {
-        s.attackCooldown = 0.5;
+        s.attackCooldown = 0.48;
         s.recoilTimer = 0.18;
         s.shakeTimer = 0.14;
         s.shakeIntensity = 6;
@@ -515,13 +573,13 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
           id: `cn-${now}`,
           x: muzzle.x,
           y: muzzle.y,
-          vx: Math.cos(ang) * 620,
-          vy: Math.sin(ang) * 620,
+          vx: Math.cos(ang) * 630,
+          vy: Math.sin(ang) * 630,
           fromPlayer: true,
           kind: 'cannon_shell',
-          damage: 112 * lvlScale,
+          damage: 116 * lvlScale,
           targetEnemyId: locked?.id,
-          life: 1.5,
+          life: 1.55,
         });
       } else {
         s.attackCooldown = 0.35;
@@ -558,7 +616,7 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
   }
   s.logicMines = activeMines;
 
-  const findPartnerTarget = (fromX: number, fromY: number, maxRange: number): InternalEnemy | undefined => {
+  const findPetTarget = (fromX: number, fromY: number, maxRange: number): InternalEnemy | undefined => {
     let bestHostile: InternalEnemy | undefined;
     let bestHostileDist = maxRange;
     let bestWild: InternalEnemy | undefined;
@@ -580,11 +638,11 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
     return bestHostile || bestWild;
   };
 
-  // ALLIED PARTNER 1: Blue-Eyed Robo-Dog
+  // PET 1: Tamed Cyber Hound
   const dogComp = pState.companions.find((c) => c.kind === CompanionKind.SCOUT_DOG);
   if (dogComp) {
     if (s.dogAttackCd > 0) s.dogAttackCd -= dt;
-    const target = findPartnerTarget(s.px, s.py, 580);
+    const target = findPetTarget(s.px, s.py, 620);
     if (target) {
       target.markedByDog = true;
       const wp = steerThroughFacilityDoors(s.dogX, s.dogY, target.x, target.y);
@@ -593,11 +651,11 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
       const d = Math.hypot(dx, dy) || 1;
       s.dogFacingRight = dx >= 0;
       if (d > 28) {
-        s.dogX += (dx / d) * 315 * dt;
-        s.dogY += (dy / d) * 315 * dt;
+        s.dogX += (dx / d) * 320 * dt;
+        s.dogY += (dy / d) * 320 * dt;
       }
-      if (Math.hypot(target.x - s.dogX, target.y - s.dogY) < 46 && s.dogAttackCd <= 0) {
-        s.dogAttackCd = 0.68;
+      if (Math.hypot(target.x - s.dogX, target.y - s.dogY) < 52 && s.dogAttackCd <= 0) {
+        s.dogAttackCd = 0.65;
         target.slowTimer = 2.6;
         const biteAng = Math.atan2(target.y - s.dogY, target.x - s.dogX);
         s.slashes.push({
@@ -609,7 +667,7 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
           isEmp: false,
           life: 0.16,
         });
-        damageEnemy(target, 38 + dogComp.level * 9, s.weapon, 1.5, true);
+        damageEnemy(target, 40 + dogComp.level * 10, s.weapon, 1.5, true);
       }
     } else {
       const homeX = s.px - 54;
@@ -622,7 +680,7 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
     }
   }
 
-  // ALLIED PARTNER 2: Blue-Eyed Robo-Cat
+  // PET 2: Tamed Cyber Cat
   const catComp = pState.companions.find((c) => c.kind === CompanionKind.CYBER_CAT);
   if (catComp) {
     if (s.catAttackCd > 0) s.catAttackCd -= dt;
@@ -651,9 +709,9 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
       s.catY += dy * 5.2 * dt;
     }
 
-    const catTarget = findPartnerTarget(s.catX, s.catY, 540);
+    const catTarget = findPetTarget(s.catX, s.catY, 560);
     if (catTarget && s.catAttackCd <= 0) {
-      s.catAttackCd = 0.62;
+      s.catAttackCd = 0.6;
       s.catFacingRight = catTarget.x >= s.catX;
       s.lasers.push({
         x1: s.catX,
@@ -664,24 +722,24 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
         color: '#00b4ff',
         width: 3.6,
       });
-      damageEnemy(catTarget, 34 + catComp.level * 8, s.weapon, 1.1, true);
+      damageEnemy(catTarget, 36 + catComp.level * 9, s.weapon, 1.1, true);
     }
 
     for (const drop of s.drops) {
       const d = Math.hypot(s.px - drop.x, s.py - drop.y);
-      if (d < 440 && d > 12) {
-        drop.x += ((s.px - drop.x) / d) * 430 * dt;
-        drop.y += ((s.py - drop.y) / d) * 430 * dt;
+      if (d < 460 && d > 12) {
+        drop.x += ((s.px - drop.x) / d) * 440 * dt;
+        drop.y += ((s.py - drop.y) / d) * 440 * dt;
       }
     }
   }
 
   for (const chest of s.chests) {
-    if (!chest.opened && Math.hypot(s.px - chest.x, s.py - chest.y) < 46 && (chest.hackProgress += dt * 0.7) >= 1) {
+    if (!chest.opened && Math.hypot(s.px - chest.x, s.py - chest.y) < 48 && (chest.hackProgress += dt * 0.75) >= 1) {
       chest.opened = true;
       soundFX.playLootPickup(true);
       s.drops.push({ id: `pco-${now}`, x: chest.x - 10, y: chest.y, kind: 'oCore', amount: 1 });
-      s.drops.push({ id: `pca-${now}`, x: chest.x + 12, y: chest.y, kind: 'ammo', amount: 10 });
+      s.drops.push({ id: `pca-${now}`, x: chest.x + 12, y: chest.y, kind: 'ammo', amount: 12 });
     }
   }
 
@@ -710,8 +768,11 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
       en.kind !== EnemyKind.WILD_CYBER_CAT
   );
 
-  // Hostile Corporate Bots & Outdoor Cthulhu Mutants Combat Resolution
+  // Hostile Bots, Cthulhu Mutants, Giant Mechs, Chimeras & World Bosses Resolution
   const capturedIds = new Set<string>();
+  let nearestBoss: InternalEnemy | undefined;
+  let nearestBossDist = 1040;
+
   for (const e of s.enemies) {
     if (e.hitFlash > 0) e.hitFlash -= dt;
     if (e.slowTimer > 0) e.slowTimer -= dt;
@@ -731,7 +792,7 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
           s.floatTexts.push({
             x: e.x,
             y: e.y - 52,
-            text: 'MAX 1 SPECIES OWNED (REFUNDED)',
+            text: 'ALREADY TAMED (ORB REFUNDED)',
             color: '#d9ff00',
             life: 1.2,
           });
@@ -751,8 +812,8 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
             y: e.y - 52,
             text:
               compKind === CompanionKind.SCOUT_DOG
-                ? 'BLUE-EYE ROBO-DOG ALLIED!'
-                : 'BLUE-EYE ROBO-CAT ALLIED!',
+                ? 'CYBER HOUND TAMED!'
+                : 'CYBER CAT TAMED!',
             color: '#38bdf8',
             life: 1.35,
           });
@@ -771,6 +832,12 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
       continue;
     }
 
+    const groundDist = Math.hypot(s.px - e.x, s.py - e.y) || 1;
+    if (isWorldBossKind(e.kind) && e.hp > 0 && groundDist < nearestBossDist) {
+      nearestBossDist = groundDist;
+      nearestBoss = e;
+    }
+
     if (e.stunTimer > 0) {
       e.stunTimer -= dt;
       e.eyeChargeTimer = 0;
@@ -781,31 +848,39 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
 
     const dx = s.px - e.x;
     const dy = s.py - 28 - (e.y - 24);
-    const groundDist = Math.hypot(s.px - e.x, s.py - e.y) || 1;
     const isWildPet =
       e.kind === EnemyKind.WILD_SCOUT_DOG || e.kind === EnemyKind.WILD_CYBER_CAT;
     const isEldritch = isEldritchEnemyKind(e.kind);
+    const isBoss = isWorldBossKind(e.kind);
 
-    // Resolve Active Crimson / Abyssal Eye-Laser Charge -> Twin Eye Beams!
+    // Resolve Active Crimson / Abyssal / Titan Eye-Laser Charge -> Twin Eye Beams!
     if (e.eyeChargeTimer > 0) {
       e.eyeChargeTimer -= dt;
       e.isMoving = false;
       if (e.eyeChargeTimer <= 0) {
         const anchors = getEnemyCombatAnchorsWorld(e);
         soundFX.playPulseLaser();
-        const beamColor = isEldritch ? '#c026d3' : '#ff1744';
-        const fireFromEye = (eyePos: { x: number; y: number }) => {
-          const ang = Math.atan2(e.eyeTargetY - eyePos.y, e.eyeTargetX - eyePos.x);
-          const lx2 = eyePos.x + Math.cos(ang) * 520;
-          const ly2 = eyePos.y + Math.sin(ang) * 520;
+        const beamColor =
+          e.kind === EnemyKind.BOSS_IRON_COLOSSUS_TITAN
+            ? '#f97316'
+            : isEldritch || e.kind === EnemyKind.BOSS_OMEGA_CHIMERA_AMALGAM
+            ? '#c026d3'
+            : '#ff1744';
+        const beamRange = isBoss ? 680 : 540;
+        const beamWidth = isBoss ? 5.6 : isEldritch ? 4.4 : 3.6;
+
+        const fireFromEye = (eyePos: { x: number; y: number }, angleOffset = 0) => {
+          const ang = Math.atan2(e.eyeTargetY - eyePos.y, e.eyeTargetX - eyePos.x) + angleOffset;
+          const lx2 = eyePos.x + Math.cos(ang) * beamRange;
+          const ly2 = eyePos.y + Math.sin(ang) * beamRange;
           s.lasers.push({
             x1: eyePos.x,
             y1: eyePos.y,
             x2: lx2,
             y2: ly2,
-            life: 0.24,
+            life: 0.25,
             color: beamColor,
-            width: isEldritch ? 4.4 : 3.6,
+            width: beamWidth,
           });
           const ldx = lx2 - eyePos.x;
           const ldy = ly2 - eyePos.y;
@@ -814,49 +889,74 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
             0,
             Math.min(1, ((s.px - eyePos.x) * ldx + (s.py - 32 - eyePos.y) * ldy) / lSq)
           );
-          if (Math.hypot(s.px - (eyePos.x + pr * ldx), s.py - 32 - (eyePos.y + pr * ldy)) < 24) {
-            damagePlayer(isEldritch ? 10 : 8, 5);
+          if (Math.hypot(s.px - (eyePos.x + pr * ldx), s.py - 32 - (eyePos.y + pr * ldy)) < 25) {
+            damagePlayer(isBoss ? 12 : isEldritch ? 10 : 8, 5);
           }
         };
         fireFromEye(anchors.leftEye);
         fireFromEye(anchors.rightEye);
+        if (e.kind === EnemyKind.BOSS_OMEGA_CHIMERA_AMALGAM) {
+          fireFromEye(
+            {
+              x: (anchors.leftEye.x + anchors.rightEye.x) * 0.5,
+              y: anchors.leftEye.y - 10,
+            },
+            0
+          );
+        }
       }
       continue;
     }
 
-    // Resolve Multi-Shot Rifle Burst from exact Hand-Held Gun Muzzle
+    // Resolve Multi-Shot Rifle / Autocannon Burst from exact Gun Muzzle
     if (e.burstRemaining > 0) {
       e.burstTimer -= dt;
       if (e.burstTimer <= 0) {
         e.burstRemaining -= 1;
-        e.burstTimer = 0.16;
+        e.burstTimer = 0.14;
         const anchors = getEnemyCombatAnchorsWorld(e);
-        const spread = (Math.random() - 0.5) * 0.08;
+        const spread = (Math.random() - 0.5) * 0.1;
         const ang = e.facingAngle + spread;
-        emitMuzzleSparks(anchors.gunMuzzle.x, anchors.gunMuzzle.y, ang, '#ff2a85', 4);
+        emitMuzzleSparks(
+          anchors.gunMuzzle.x,
+          anchors.gunMuzzle.y,
+          ang,
+          isMechaOrChimeraKind(e.kind) ? '#f97316' : '#ff2a85',
+          4
+        );
         s.projectiles.push({
           id: `eb-${now}-${Math.random()}`,
           x: anchors.gunMuzzle.x,
           y: anchors.gunMuzzle.y,
-          vx: Math.cos(ang) * 245,
-          vy: Math.sin(ang) * 245,
+          vx: Math.cos(ang) * 255,
+          vy: Math.sin(ang) * 255,
           fromPlayer: false,
           kind: 'enemy_bullet',
-          damage: 6,
-          life: 2.5,
+          damage: isBoss ? 8 : 6,
+          life: 2.6,
         });
       }
     }
 
     let spd =
-      e.kind === EnemyKind.ELDRITCH_TENTACLE_WEAVER
+      e.kind === EnemyKind.CHIMERA_HOUND_WEAVER
+        ? 86
+        : e.kind === EnemyKind.ELDRITCH_TENTACLE_WEAVER
         ? 82
         : e.kind === EnemyKind.OPENAI_VIPER
         ? 78
+        : e.kind === EnemyKind.MECH_SPIDER_ARACHNID
+        ? 66
         : e.kind === EnemyKind.OPENAI_STALKER
         ? 64
+        : e.kind === EnemyKind.MUTATED_EXCAVATOR_BEHEMOTH
+        ? 52
+        : e.kind === EnemyKind.ELITE_CHIMERA_JUGGERNAUT || e.kind === EnemyKind.BOSS_OMEGA_CHIMERA_AMALGAM
+        ? 50
         : e.kind === EnemyKind.SHOGGOTH_CORE_AMALGAM
         ? 48
+        : e.kind === EnemyKind.BOSS_IRON_COLOSSUS_TITAN
+        ? 46
         : e.kind === EnemyKind.ANTHROPIC_BULWARK
         ? 45
         : e.kind === EnemyKind.CTHULHU_LEVIATHAN_PRIME
@@ -867,34 +967,41 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
     if (e.berserk) spd *= 1.15;
     if (e.slowTimer > 0) spd *= 0.48;
 
-    // Outdoor Cthulhu Horrors prowl the Outdoor Wastes until the player enters/approaches OR indoor bots are cleared!
-    const eldritchDormantProwl =
-      isEldritch && s.px < OUTDOOR_DIVIDE_X - 240 && groundDist > 920 && indoorBotsRemaining;
+    // Open-World Monsters (x > OUTDOOR_DIVIDE_X) patrol their outdoor territory until player approaches or clears indoor rooms
+    const outdoorTerritoryProwl =
+      e.x >= OUTDOOR_DIVIDE_X &&
+      s.px < OUTDOOR_DIVIDE_X - 240 &&
+      groundDist > 920 &&
+      indoorBotsRemaining;
 
-    if ((isWildPet && !e.berserk) || eldritchDormantProwl) {
+    if ((isWildPet && !e.berserk) || outdoorTerritoryProwl) {
       const patrolAng = now * 0.7 + e.id.length * 1.3;
       e.facingAngle = patrolAng;
       e.isMoving = true;
       e.walkPhase += dt * 6.5;
       const m = clampObs(
-        e.x + Math.cos(patrolAng) * 32 * dt,
-        e.y + Math.sin(patrolAng) * 26 * dt,
-        20
+        e.x + Math.cos(patrolAng) * 34 * dt,
+        e.y + Math.sin(patrolAng) * 28 * dt,
+        22
       );
-      if (!isEldritch || m.x > OUTDOOR_DIVIDE_X + 60) {
+      if (e.x < OUTDOOR_DIVIDE_X || m.x > OUTDOOR_DIVIDE_X + 60) {
         e.x = m.x;
         e.y = m.y;
       }
     } else {
       e.facingAngle = Math.atan2(dy, dx);
       const preferredStopDist =
-        e.kind === EnemyKind.CTHULHU_LEVIATHAN_PRIME || e.kind === EnemyKind.LOGIC_WEAVER_ELITE
+        isBoss || e.kind === EnemyKind.LOGIC_WEAVER_ELITE
           ? 240
+          : e.kind === EnemyKind.ELITE_CHIMERA_JUGGERNAUT
+          ? 200
           : e.kind === EnemyKind.SHOGGOTH_CORE_AMALGAM || e.kind === EnemyKind.ANTHROPIC_BULWARK
           ? 185
+          : e.kind === EnemyKind.MECH_SPIDER_ARACHNID || e.kind === EnemyKind.MUTATED_EXCAVATOR_BEHEMOTH
+          ? 170
           : e.kind === EnemyKind.OPENAI_STALKER
           ? 155
-          : 40;
+          : 44;
 
       if (groundDist > preferredStopDist) {
         e.isMoving = true;
@@ -904,7 +1011,7 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
         const m = clampObs(
           e.x + ((wp.wx - e.x) / wDist) * spd * dt,
           e.y + ((wp.wy - e.y) / wDist) * spd * dt,
-          20
+          isBoss ? 26 : 20
         );
         e.x = m.x;
         e.y = m.y;
@@ -914,7 +1021,7 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
     }
 
     e.attackCooldown -= dt;
-    if (e.attackCooldown <= 0 && !eldritchDormantProwl) {
+    if (e.attackCooldown <= 0 && !outdoorTerritoryProwl) {
       if (isWildPet) {
         if (e.berserk && groundDist < 48) {
           e.attackCooldown = 1.15;
@@ -929,8 +1036,307 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
           });
           damagePlayer(7, 3.5);
         }
+      } else if (e.kind === EnemyKind.MECH_SPIDER_ARACHNID && groundDist < 580) {
+        // Giant 6-Legged Spider Mech: Twin Plasma Salvo -> Dorsal Mortar Rocket!
+        const step = e.attackPatternStep % 3;
+        e.attackPatternStep += 1;
+        const anchors = getEnemyCombatAnchorsWorld(e);
+        if (step < 2) {
+          e.attackCooldown = 2.1;
+          e.burstRemaining = 3;
+          e.burstTimer = 0.02;
+        } else {
+          e.attackCooldown = 2.6;
+          soundFX.playDisruptorCannon();
+          emitMuzzleSparks(anchors.rocketMuzzle.x, anchors.rocketMuzzle.y, e.facingAngle, '#f97316', 6);
+          s.projectiles.push({
+            id: `msp-r-${now}-${Math.random()}`,
+            x: anchors.rocketMuzzle.x,
+            y: anchors.rocketMuzzle.y,
+            vx: Math.cos(e.facingAngle) * 210,
+            vy: Math.sin(e.facingAngle) * 210,
+            fromPlayer: false,
+            kind: 'enemy_rocket',
+            damage: 11,
+            life: 2.9,
+          });
+        }
+      } else if (e.kind === EnemyKind.MUTATED_EXCAVATOR_BEHEMOTH) {
+        // Mutated Excavator Wrecker: Molten Buzzsaw Cleave OR Spinning Plasma Saw + Shrapnel!
+        if (groundDist < 84) {
+          e.attackCooldown = 1.15;
+          e.meleeSwingTimer = 0.28;
+          soundFX.playChainsawRip();
+          s.slashes.push({
+            x: e.x,
+            y: e.y - 26,
+            angle: e.facingAngle,
+            radius: 82,
+            color: '#f97316',
+            isEmp: false,
+            life: 0.24,
+          });
+          damagePlayer(11, 5);
+        } else if (groundDist < 560) {
+          e.attackCooldown = 2.55;
+          const anchors = getEnemyCombatAnchorsWorld(e);
+          soundFX.playChainsawRip();
+          emitMuzzleSparks(anchors.gunMuzzle.x, anchors.gunMuzzle.y, e.facingAngle, '#fb923c', 7);
+          s.projectiles.push({
+            id: `exc-saw-${now}-${Math.random()}`,
+            x: anchors.gunMuzzle.x,
+            y: anchors.gunMuzzle.y,
+            vx: Math.cos(e.facingAngle) * 235,
+            vy: Math.sin(e.facingAngle) * 235,
+            fromPlayer: false,
+            kind: 'plasma_saw',
+            damage: 11,
+            life: 3.0,
+          });
+          for (const off of [-0.22, 0.22]) {
+            const ang = e.facingAngle + off;
+            s.projectiles.push({
+              id: `exc-sh-${now}-${off}-${Math.random()}`,
+              x: anchors.gunMuzzle.x,
+              y: anchors.gunMuzzle.y,
+              vx: Math.cos(ang) * 250,
+              vy: Math.sin(ang) * 250,
+              fromPlayer: false,
+              kind: 'enemy_bullet',
+              damage: 7,
+              life: 2.5,
+            });
+          }
+        }
+      } else if (e.kind === EnemyKind.CHIMERA_HOUND_WEAVER) {
+        // Fusion Monster: Quadruped Claw Pounce + Grafted Pulse Burst + Cthulhu Scorpion Optic Laser!
+        if (groundDist < 74) {
+          e.attackCooldown = 1.05;
+          e.meleeSwingTimer = 0.24;
+          soundFX.playArcSlash(false);
+          s.slashes.push({
+            x: e.x,
+            y: e.y - 20,
+            angle: e.facingAngle,
+            radius: 68,
+            color: '#f43f5e',
+            isEmp: false,
+            life: 0.2,
+          });
+          damagePlayer(9, 4);
+        } else if (groundDist < 480) {
+          const step = e.attackPatternStep % 2;
+          e.attackPatternStep += 1;
+          if (step === 0) {
+            e.attackCooldown = 2.1;
+            e.burstRemaining = 2;
+            e.burstTimer = 0.02;
+          } else {
+            e.attackCooldown = 2.5;
+            e.eyeChargeTimer = 0.42;
+            e.eyeTargetX = s.px;
+            e.eyeTargetY = s.py - 32;
+          }
+        }
+      } else if (e.kind === EnemyKind.ELITE_CHIMERA_JUGGERNAUT && groundDist < 600) {
+        // Elite Multi-Monster Fusion: 3-Shot Autocannon -> Shoulder RPG -> Twin Abyssal Orbs!
+        const step = e.attackPatternStep % 3;
+        e.attackPatternStep += 1;
+        const anchors = getEnemyCombatAnchorsWorld(e);
+        if (step === 0) {
+          e.attackCooldown = 2.2;
+          emitMuzzleSparks(anchors.gunMuzzle.x, anchors.gunMuzzle.y, e.facingAngle, '#00e5ff', 6);
+          for (let b = -1; b <= 1; b++) {
+            const ang = e.facingAngle + b * 0.2;
+            s.projectiles.push({
+              id: `jug-b-${now}-${b}-${Math.random()}`,
+              x: anchors.gunMuzzle.x,
+              y: anchors.gunMuzzle.y,
+              vx: Math.cos(ang) * 250,
+              vy: Math.sin(ang) * 250,
+              fromPlayer: false,
+              kind: 'enemy_bullet',
+              damage: 8,
+              life: 2.7,
+            });
+          }
+        } else if (step === 1) {
+          e.attackCooldown = 2.5;
+          soundFX.playDisruptorCannon();
+          emitMuzzleSparks(anchors.rocketMuzzle.x, anchors.rocketMuzzle.y, e.facingAngle, '#eab308', 7);
+          s.projectiles.push({
+            id: `jug-r-${now}-${Math.random()}`,
+            x: anchors.rocketMuzzle.x,
+            y: anchors.rocketMuzzle.y,
+            vx: Math.cos(e.facingAngle) * 215,
+            vy: Math.sin(e.facingAngle) * 215,
+            fromPlayer: false,
+            kind: 'enemy_rocket',
+            damage: 12,
+            life: 2.9,
+          });
+        } else {
+          e.attackCooldown = 2.4;
+          for (const off of [-0.18, 0.18]) {
+            const ang = e.facingAngle + off;
+            s.projectiles.push({
+              id: `jug-o-${now}-${off}-${Math.random()}`,
+              x: e.x,
+              y: e.y - 44,
+              vx: Math.cos(ang) * 215,
+              vy: Math.sin(ang) * 215,
+              fromPlayer: false,
+              kind: 'eldritch_orb',
+              damage: 9,
+              life: 3.0,
+            });
+          }
+        }
+      } else if (e.kind === EnemyKind.BOSS_IRON_COLOSSUS_TITAN && groundDist < 720) {
+        // WORLD BOSS 1: Iron Colossus Titan (Shockwave Stomp / 5-Shot Gatling / Twin Rockets / 3 Plasma Saws / Mega-Visor Beam!)
+        if (groundDist < 96) {
+          e.attackCooldown = 1.45;
+          soundFX.playDisruptorCannon();
+          s.slashes.push({
+            x: e.x,
+            y: e.y - 16,
+            angle: 0,
+            radius: 112,
+            color: '#f97316',
+            isEmp: true,
+            life: 0.25,
+          });
+          damagePlayer(13, 6.5);
+        } else {
+          const step = e.attackPatternStep % 4;
+          e.attackPatternStep += 1;
+          const anchors = getEnemyCombatAnchorsWorld(e);
+
+          if (step === 0) {
+            e.attackCooldown = 2.0;
+            emitMuzzleSparks(anchors.gunMuzzle.x, anchors.gunMuzzle.y, e.facingAngle, '#f97316', 9);
+            for (let b = -2; b <= 2; b++) {
+              const ang = e.facingAngle + b * 0.14;
+              s.projectiles.push({
+                id: `tit-g-${now}-${b}-${Math.random()}`,
+                x: anchors.gunMuzzle.x,
+                y: anchors.gunMuzzle.y,
+                vx: Math.cos(ang) * 265,
+                vy: Math.sin(ang) * 265,
+                fromPlayer: false,
+                kind: 'enemy_bullet',
+                damage: 8,
+                life: 2.8,
+              });
+            }
+          } else if (step === 1) {
+            e.attackCooldown = 2.3;
+            soundFX.playDisruptorCannon();
+            emitMuzzleSparks(anchors.rocketMuzzle.x, anchors.rocketMuzzle.y, e.facingAngle, '#fb923c', 8);
+            for (const off of [-0.12, 0.12]) {
+              const ang = e.facingAngle + off;
+              s.projectiles.push({
+                id: `tit-r-${now}-${off}-${Math.random()}`,
+                x: anchors.rocketMuzzle.x,
+                y: anchors.rocketMuzzle.y,
+                vx: Math.cos(ang) * 225,
+                vy: Math.sin(ang) * 225,
+                fromPlayer: false,
+                kind: 'enemy_rocket',
+                damage: 13,
+                life: 3.1,
+              });
+            }
+          } else if (step === 2) {
+            e.attackCooldown = 2.4;
+            soundFX.playChainsawRip();
+            for (let k = -1; k <= 1; k++) {
+              const ang = e.facingAngle + k * 0.22;
+              s.projectiles.push({
+                id: `tit-saw-${now}-${k}-${Math.random()}`,
+                x: anchors.gunMuzzle.x,
+                y: anchors.gunMuzzle.y,
+                vx: Math.cos(ang) * 240,
+                vy: Math.sin(ang) * 240,
+                fromPlayer: false,
+                kind: 'plasma_saw',
+                damage: 12,
+                life: 3.1,
+              });
+            }
+          } else {
+            e.attackCooldown = 2.4;
+            e.eyeChargeTimer = 0.48;
+            e.eyeTargetX = s.px;
+            e.eyeTargetY = s.py - 32;
+          }
+        }
+      } else if (e.kind === EnemyKind.BOSS_OMEGA_CHIMERA_AMALGAM && groundDist < 720) {
+        // WORLD BOSS 2: Omega Chimera Overlord (Apex Multi-Monster Fusion Boss!)
+        const step = e.attackPatternStep % 4;
+        e.attackPatternStep += 1;
+        const anchors = getEnemyCombatAnchorsWorld(e);
+
+        if (step === 0) {
+          e.attackCooldown = 2.1;
+          emitMuzzleSparks(anchors.gunMuzzle.x, anchors.gunMuzzle.y, e.facingAngle, '#e879f9', 9);
+          for (let k = -1; k <= 1; k++) {
+            const ang = e.facingAngle + k * 0.25;
+            s.projectiles.push({
+              id: `omg-o-${now}-${k}-${Math.random()}`,
+              x: anchors.gunMuzzle.x,
+              y: anchors.gunMuzzle.y,
+              vx: Math.cos(ang) * 235,
+              vy: Math.sin(ang) * 235,
+              fromPlayer: false,
+              kind: 'eldritch_orb',
+              damage: 10,
+              life: 3.2,
+            });
+          }
+          for (const off of [-0.12, 0.12]) {
+            const ang = e.facingAngle + off;
+            s.projectiles.push({
+              id: `omg-s-${now}-${off}-${Math.random()}`,
+              x: anchors.gunMuzzle.x,
+              y: anchors.gunMuzzle.y,
+              vx: Math.cos(ang) * 255,
+              vy: Math.sin(ang) * 255,
+              fromPlayer: false,
+              kind: 'plasma_saw',
+              damage: 11,
+              life: 3.0,
+            });
+          }
+        } else if (step === 1) {
+          e.attackCooldown = 2.2;
+          e.eyeChargeTimer = 0.46;
+          e.eyeTargetX = s.px;
+          e.eyeTargetY = s.py - 32;
+        } else if (step === 2) {
+          e.attackCooldown = 2.4;
+          soundFX.playDisruptorCannon();
+          emitMuzzleSparks(anchors.rocketMuzzle.x, anchors.rocketMuzzle.y, e.facingAngle, '#ff1744', 8);
+          for (const off of [-0.14, 0.14]) {
+            const ang = e.facingAngle + off;
+            s.projectiles.push({
+              id: `omg-r-${now}-${off}-${Math.random()}`,
+              x: anchors.rocketMuzzle.x,
+              y: anchors.rocketMuzzle.y,
+              vx: Math.cos(ang) * 225,
+              vy: Math.sin(ang) * 225,
+              fromPlayer: false,
+              kind: 'enemy_rocket',
+              damage: 13,
+              life: 3.1,
+            });
+          }
+        } else {
+          e.attackCooldown = 1.9;
+          e.burstRemaining = 4;
+          e.burstTimer = 0.02;
+        }
       } else if (e.kind === EnemyKind.ELDRITCH_TENTACLE_WEAVER) {
-        // Outdoor Mutant 1: Whipping Biomechanical Tentacles up close OR Abyssal Cluster Eye-Lasers!
         if (groundDist < 78) {
           e.attackCooldown = 1.05;
           e.meleeSwingTimer = 0.28;
@@ -952,7 +1358,6 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
           e.eyeTargetY = s.py - 32;
         }
       } else if (e.kind === EnemyKind.SHOGGOTH_CORE_AMALGAM) {
-        // Outdoor Mutant 2: Tentacle Shockwave Slam OR Gaping Maw Abyssal Eyeball Void Orbs!
         if (groundDist < 68) {
           e.attackCooldown = 1.35;
           s.slashes.push({
@@ -984,8 +1389,7 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
             });
           }
         }
-      } else if (e.kind === EnemyKind.CTHULHU_LEVIATHAN_PRIME && groundDist < 620) {
-        // Outdoor Boss: Cthulhu Overmind Dreadnought (3-Orb Void Fan -> Apocalypse Eye Beams -> Bio-Rocket!)
+      } else if (e.kind === EnemyKind.CTHULHU_LEVIATHAN_PRIME && groundDist < 650) {
         const step = e.attackPatternStep % 3;
         e.attackPatternStep += 1;
         const anchors = getEnemyCombatAnchorsWorld(e);
@@ -1145,16 +1549,18 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
     }
 
     if (
-      (e.kind === EnemyKind.LOGIC_WEAVER_ELITE || e.kind === EnemyKind.CTHULHU_LEVIATHAN_PRIME) &&
+      (e.kind === EnemyKind.LOGIC_WEAVER_ELITE ||
+        e.kind === EnemyKind.ELITE_CHIMERA_JUGGERNAUT ||
+        isBoss) &&
       groundDist < 680 &&
       (e.logicBombCooldown -= dt) <= 0
     ) {
       e.logicBombCooldown = 10.5;
-      if (s.logicMines.length < 2) {
+      if (s.logicMines.length < 3) {
         s.logicMines.push({
           id: `mine-${now}-${Math.random()}`,
-          x: Math.max(140, Math.min(WORLD_W - 140, s.px + (Math.random() - 0.5) * 210)),
-          y: Math.max(140, Math.min(WORLD_H - 140, s.py + (Math.random() - 0.5) * 160)),
+          x: Math.max(140, Math.min(WORLD_W - 140, s.px + (Math.random() - 0.5) * 220)),
+          y: Math.max(140, Math.min(WORLD_H - 140, s.py + (Math.random() - 0.5) * 170)),
           timer: 4.2,
           maxTimer: 4.2,
           hp: 35,
@@ -1162,6 +1568,19 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
         });
       }
     }
+  }
+
+  if (cb.setActiveBoss) {
+    cb.setActiveBoss(
+      nearestBoss
+        ? {
+            kind: nearestBoss.kind,
+            hp: Math.max(0, Math.round(nearestBoss.hp)),
+            maxHp: nearestBoss.maxHp,
+            armor: Math.max(0, Math.round(nearestBoss.armor)),
+          }
+        : null
+    );
   }
 
   const countHostilesOnly = (arr: InternalEnemy[]) =>
@@ -1194,7 +1613,6 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
       }
     }
 
-    // Gentle eldritch homing curve on Shoggoth / Cthulhu Eyeball Orbs
     if (p.kind === 'eldritch_orb') {
       const desired = Math.atan2(s.py - 32 - p.y, s.px - p.x);
       const cur = Math.atan2(p.vy, p.vx);
@@ -1203,7 +1621,7 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
       const spd = Math.hypot(p.vx, p.vy);
       p.vx = Math.cos(nextAng) * spd;
       p.vy = Math.sin(nextAng) * spd;
-      if (Math.random() < 0.45) {
+      if (Math.random() < 0.4) {
         s.particles.push({
           x: p.x,
           y: p.y,
@@ -1215,6 +1633,19 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
           maxLife: 0.22,
         });
       }
+    }
+
+    if (p.kind === 'plasma_saw' && Math.random() < 0.5) {
+      s.particles.push({
+        x: p.x,
+        y: p.y,
+        vx: (Math.random() - 0.5) * 35,
+        vy: (Math.random() - 0.5) * 35,
+        size: 3.2,
+        color: '#f97316',
+        life: 0.18,
+        maxLife: 0.18,
+      });
     }
 
     if (p.kind === 'enemy_rocket' && Math.random() < 0.65) {
@@ -1249,7 +1680,7 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
                 s.floatTexts.push({
                   x: e.x,
                   y: e.y - 48,
-                  text: 'MAX 1 SPECIES OWNED (REFUNDED)',
+                  text: 'ALREADY TAMED (ORB REFUNDED)',
                   color: '#d9ff00',
                   life: 1.1,
                 });
@@ -1263,11 +1694,12 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
         }
       } else {
         for (const e of s.enemies) {
-          if (Math.hypot(e.x - p.x, e.y - 28 - p.y) < 44) {
+          const hitTol = isWorldBossKind(e.kind) ? 58 : 44;
+          if (Math.hypot(e.x - p.x, e.y - 28 - p.y) < hitTol) {
             hit = true;
-            s.slashes.push({ x: p.x, y: p.y, angle: 0, radius: 95, color: '#ff1744', isEmp: true, life: 0.2 });
+            s.slashes.push({ x: p.x, y: p.y, angle: 0, radius: 98, color: '#ff1744', isEmp: true, life: 0.2 });
             for (const sp of s.enemies) {
-              if (Math.hypot(sp.x - p.x, sp.y - p.y) <= 125) {
+              if (Math.hypot(sp.x - p.x, sp.y - p.y) <= 132) {
                 damageEnemy(sp, p.damage, WeaponId.DISRUPTOR_CANNON, 1.8);
               }
             }
@@ -1277,13 +1709,24 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
         }
       }
     } else {
-      const hitRadius = p.kind === 'enemy_rocket' ? 26 : p.kind === 'eldritch_orb' ? 23 : 19;
+      const hitRadius =
+        p.kind === 'enemy_rocket'
+          ? 26
+          : p.kind === 'plasma_saw'
+          ? 24
+          : p.kind === 'eldritch_orb'
+          ? 23
+          : 19;
       if (Math.hypot(s.px - p.x, s.py - 32 - p.y) < hitRadius) {
         hit = true;
         if (p.kind === 'enemy_rocket') {
           soundFX.playDisruptorCannon();
           s.slashes.push({ x: p.x, y: p.y, angle: 0, radius: 68, color: '#fb923c', isEmp: true, life: 0.24 });
           damagePlayer(p.damage, 5.5);
+        } else if (p.kind === 'plasma_saw') {
+          soundFX.playChainsawRip();
+          s.slashes.push({ x: p.x, y: p.y, angle: 0, radius: 56, color: '#f97316', isEmp: false, life: 0.2 });
+          damagePlayer(p.damage, 4.8);
         } else if (p.kind === 'eldritch_orb') {
           s.slashes.push({ x: p.x, y: p.y, angle: 0, radius: 52, color: '#c026d3', isEmp: true, life: 0.2 });
           damagePlayer(p.damage, 4.5);
@@ -1300,11 +1743,11 @@ export function stepCombatPhysics(s: SimState, dt: number, now: number, cb: Tick
   const nextDrops: SimState['drops'] = [];
   for (const d of s.drops) {
     const dist = Math.hypot(s.px - d.x, s.py - d.y);
-    if (dist < 120 && dist > 16) {
-      d.x += ((s.px - d.x) / dist) * 300 * dt;
-      d.y += ((s.py - d.y) / dist) * 300 * dt;
+    if (dist < 130 && dist > 16) {
+      d.x += ((s.px - d.x) / dist) * 320 * dt;
+      d.y += ((s.py - d.y) / dist) * 320 * dt;
     }
-    if (dist <= 36) {
+    if (dist <= 38) {
       soundFX.playLootPickup(d.kind === 'oCore' || d.kind === 'aCore');
       if (d.kind === 'oCore') {
         cb.onLootCollected({ oCores: d.amount });

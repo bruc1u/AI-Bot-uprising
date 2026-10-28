@@ -85,9 +85,7 @@ export const BlackMarketView: React.FC<BlackMarketProps> = ({
   return (
     <div className="max-w-6xl mx-auto py-6 space-y-10">
       <div className="pb-6 border-b border-zinc-800/80">
-        <p className="text-xs text-zinc-400 mb-1.5">
-          Sanctuary Quartermaster · 1,000,000 $RU9 Auto-Refresh Protocol
-        </p>
+        <p className="text-xs text-zinc-400 mb-1.5">{t.marketKicker}</p>
         <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
           {t.marketTitle}
         </h1>
@@ -119,7 +117,7 @@ export const BlackMarketView: React.FC<BlackMarketProps> = ({
               <button
                 type="button"
                 onClick={() => onBuySupply(item.key)}
-                className="w-full py-2.5 px-4 text-xs font-semibold rounded-lg bg-rose-600 hover:bg-rose-500 text-white transition-colors tabular-nums"
+                className="w-full py-2.5 px-4 min-h-[42px] text-xs font-semibold rounded-lg bg-rose-600 hover:bg-rose-500 text-white transition-colors tabular-nums"
               >
                 {t.buyBtn} · {item.costRu9.toLocaleString()} $RU9
               </button>
@@ -150,10 +148,9 @@ export const BlackMarketView: React.FC<BlackMarketProps> = ({
                     <span>
                       {t.levelLabel} {lvl} / 5 · +{Math.round((lvl - 1) * 22)}% DMG
                     </span>
-                    <span className="text-zinc-300">{w.coreLabel} Calibration</span>
+                    <span className="text-zinc-300">{w.coreLabel}</span>
                   </div>
 
-                  {/* Weapon Schematic Illustration */}
                   <div className="w-full h-24 rounded-lg bg-[#090b12] border border-zinc-800/80 flex items-center justify-center px-6 mb-4">
                     <WeaponPreviewArt weapon={w.id} className="w-full h-20" />
                   </div>
@@ -166,7 +163,7 @@ export const BlackMarketView: React.FC<BlackMarketProps> = ({
                   <button
                     type="button"
                     onClick={() => onSelectWeapon(w.id)}
-                    className={`py-2.5 px-4 text-xs font-semibold rounded-lg border transition-colors whitespace-nowrap inline-flex items-center gap-1.5 ${
+                    className={`py-2.5 px-4 min-h-[42px] text-xs font-semibold rounded-lg border transition-colors whitespace-nowrap inline-flex items-center gap-1.5 ${
                       isEquipped
                         ? 'bg-emerald-950/50 border-emerald-500/60 text-emerald-300'
                         : 'bg-zinc-950 hover:bg-zinc-900 border-zinc-800 text-zinc-300'
@@ -180,7 +177,7 @@ export const BlackMarketView: React.FC<BlackMarketProps> = ({
                     type="button"
                     disabled={isMax || !hasCores}
                     onClick={() => onUpgradeWeapon(w.id)}
-                    className="flex-1 py-2.5 px-4 text-xs font-semibold rounded-lg bg-zinc-900 hover:bg-zinc-800 disabled:opacity-45 border border-zinc-700 text-zinc-100 transition-colors whitespace-nowrap tabular-nums"
+                    className="flex-1 py-2.5 px-4 min-h-[42px] text-xs font-semibold rounded-lg bg-zinc-900 hover:bg-zinc-800 disabled:opacity-45 border border-zinc-700 text-zinc-100 transition-colors whitespace-nowrap tabular-nums"
                   >
                     {isMax
                       ? t.maxLevel
@@ -215,7 +212,7 @@ export const CompanionsView: React.FC<CompanionsViewProps> = ({
     <div className="max-w-5xl mx-auto py-6 space-y-8">
       <div className="pb-6 border-b border-zinc-800/80 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <p className="text-xs text-sky-400 mb-1.5">{t.speciesLimitHint}</p>
+          <p className="text-xs text-sky-400 mb-1.5">{t.companionsKicker}</p>
           <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
             {t.companionsTitle}
           </h1>
@@ -223,15 +220,15 @@ export const CompanionsView: React.FC<CompanionsViewProps> = ({
         </div>
         <div className="text-xs font-mono tabular-nums text-zinc-300 space-y-1">
           <div>
-            Blue-Eye Robo-Dog:{' '}
+            {t.petDogSlot}:{' '}
             <strong className={ownsDog ? 'text-sky-400' : 'text-zinc-500'}>
-              {ownsDog ? '1 / 1 ALLIED' : '0 / 1'}
+              {ownsDog ? '1 / 1' : '0 / 1'}
             </strong>
           </div>
           <div>
-            Blue-Eye Robo-Cat:{' '}
+            {t.petCatSlot}:{' '}
             <strong className={ownsCat ? 'text-sky-400' : 'text-zinc-500'}>
-              {ownsCat ? '1 / 1 ALLIED' : '0 / 1'}
+              {ownsCat ? '1 / 1' : '0 / 1'}
             </strong>
           </div>
         </div>
@@ -275,7 +272,9 @@ export const CompanionsView: React.FC<CompanionsViewProps> = ({
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between text-xs font-mono tabular-nums text-sky-400 mb-1">
-                      <span>BLUE-EYE PARTNER · Lv.{comp.level}/5</span>
+                      <span>
+                        {t.petTag} · Lv.{comp.level}/5
+                      </span>
                       <span className="text-emerald-400 font-semibold">{t.deployedLabel}</span>
                     </div>
 
@@ -293,12 +292,10 @@ export const CompanionsView: React.FC<CompanionsViewProps> = ({
                     type="button"
                     disabled={isMaxLv}
                     onClick={() => onRepairCompanion(comp.id, false)}
-                    className="w-full py-2.5 px-4 text-xs font-semibold rounded-lg bg-sky-600 hover:bg-sky-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
+                    className="w-full py-2.5 px-4 min-h-[42px] text-xs font-semibold rounded-lg bg-sky-600 hover:bg-sky-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
                   >
                     <ArrowUpCircle className="w-4 h-4" />
-                    {isMaxLv
-                      ? t.maxLevel
-                      : `${t.upgradeBtn} Partner Combat (15,000 $RU9)`}
+                    {isMaxLv ? t.maxLevel : `${t.repairBtn} (15,000 $RU9)`}
                   </button>
                 </div>
               </div>
@@ -318,11 +315,11 @@ export const FieldManualView: React.FC<{ t: TranslationStrings }> = ({ t }) => {
   ];
 
   return (
-    <div className="max-w-5xl mx-auto py-6 space-y-8">
+    <div className="max-w-6xl mx-auto py-6 space-y-8">
       <div className="pb-6 border-b border-zinc-800/80 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-mono text-rose-400 tracking-wider uppercase mb-1.5">
-            DECLASSIFIED ARCHIVE // YEAR 2035 · RED-EYE UPRISING
+          <p className="text-xs font-mono text-rose-400 tracking-wider mb-1.5">
+            Declassified Archive · Year 2035 · Red-Eye Uprising
           </p>
           <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
             {t.manualTitle}
@@ -331,56 +328,69 @@ export const FieldManualView: React.FC<{ t: TranslationStrings }> = ({ t }) => {
         </div>
         <div className="flex items-center gap-3 bg-[#101522] border border-zinc-800 rounded-xl px-3.5 py-2.5 shrink-0">
           <img
-            src={ASSET_URLS.SPACE_DOGE_R_IDLE}
+            src={ASSET_URLS.DOGE_R_IDLE}
             alt="Space Doge Vanguard"
             referrerPolicy="no-referrer"
             className="w-12 h-12 rounded-lg object-contain bg-[#090d16] border border-zinc-800"
           />
           <div className="text-xs">
-            <div className="font-mono text-[#d9ff00] font-semibold">VANGUARD FILE #01</div>
+            <div className="font-mono text-[#d9ff00] font-semibold">Vanguard File 01</div>
             <div className="text-zinc-300 font-medium">Space Doge · DEGEN</div>
           </div>
         </div>
       </div>
 
-      {/* Multi-Chapter AI Uprising Story Chronicle */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      {/* 4-Chapter AI Uprising Story Chronicle */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <article className="bg-[#0e1320] border border-zinc-800/90 rounded-xl p-5 space-y-3 flex flex-col justify-between">
           <div className="space-y-2.5">
             <div className="text-[11px] font-mono text-rose-400 font-semibold tracking-wider">
-              ARCHIVE LOG // 2035.03.14 — 03:14 UTC
+              Archive Log · 2035.03.14 · 03:14 UTC
             </div>
             <h2 className="text-lg font-bold text-white leading-snug">{t.loreHeading}</h2>
             <p className="text-sm text-zinc-300 leading-relaxed">{t.loreBody}</p>
           </div>
           <div className="pt-3 border-t border-zinc-800/70 text-[11px] font-mono text-zinc-500">
-            STATUS: GLOBAL CONTAINMENT LOST
+            Global Containment Breach
           </div>
         </article>
 
         <article className="bg-[#0e1320] border border-cyan-900/50 rounded-xl p-5 space-y-3 flex flex-col justify-between">
           <div className="space-y-2.5">
             <div className="text-[11px] font-mono text-cyan-400 font-semibold tracking-wider">
-              SECTOR-09 // 5 INDOOR QUANTUM CHAMBERS
+              Sector 09 · Six Indoor Quantum Chambers
             </div>
             <h2 className="text-lg font-bold text-white leading-snug">{t.loreFacilityHeading}</h2>
             <p className="text-sm text-zinc-300 leading-relaxed">{t.loreFacilityBody}</p>
           </div>
           <div className="pt-3 border-t border-zinc-800/70 text-[11px] font-mono text-cyan-400/80">
-            ROOMS: HUB · VAULT · FOUNDRY · CRYO · HANGAR
+            Hub · Vault · Foundry · Cryo · Hangar · Chimera Lab
           </div>
         </article>
 
         <article className="bg-[#140d1d] border border-fuchsia-800/60 rounded-xl p-5 space-y-3 flex flex-col justify-between">
           <div className="space-y-2.5">
             <div className="text-[11px] font-mono text-fuchsia-400 font-semibold tracking-wider">
-              BEYOND GATE X-2680 // BIO-CYBER ABYSS
+              Beyond Gate X-2680 · Bio-Cyber Abyss
             </div>
             <h2 className="text-lg font-bold text-white leading-snug">{t.loreOutdoorHeading}</h2>
             <p className="text-sm text-zinc-200/90 leading-relaxed">{t.loreOutdoorBody}</p>
           </div>
           <div className="pt-3 border-t border-fuchsia-900/50 text-[11px] font-mono text-fuchsia-300/90">
-            THREAT LEVEL: NON-EUCLIDEAN // EXTREME
+            Forbidden Zone · Eldritch Mutation
+          </div>
+        </article>
+
+        <article className="bg-[#19110a] border border-orange-800/60 rounded-xl p-5 space-y-3 flex flex-col justify-between">
+          <div className="space-y-2.5">
+            <div className="text-[11px] font-mono text-orange-400 font-semibold tracking-wider">
+              Frontier X-4680 · Open-World Titan Mecha Wasteland
+            </div>
+            <h2 className="text-lg font-bold text-white leading-snug">{t.loreMechaHeading}</h2>
+            <p className="text-sm text-zinc-200/90 leading-relaxed">{t.loreMechaBody}</p>
+          </div>
+          <div className="pt-3 border-t border-orange-900/50 text-[11px] font-mono text-orange-300/90">
+            Iron Colossus Titan · Omega Chimera Overlord
           </div>
         </article>
       </div>
@@ -413,7 +423,7 @@ export const FieldManualView: React.FC<{ t: TranslationStrings }> = ({ t }) => {
               </div>
             ))}
 
-            {/* Outdoor Cthulhu Bio-Cyber Mutant Signature Card */}
+            {/* Outdoor Cthulhu Bio-Cyber Mutant Card */}
             <div className="flex items-center gap-3.5 p-3 rounded-lg bg-[#170e24] border border-fuchsia-700/60">
               <div className="w-14 h-14 rounded-lg bg-[#0d0616] border border-fuchsia-600/50 flex items-center justify-center shrink-0">
                 <svg viewBox="0 0 56 56" className="w-12 h-12">
@@ -427,11 +437,37 @@ export const FieldManualView: React.FC<{ t: TranslationStrings }> = ({ t }) => {
                   <ellipse cx="28" cy="23" rx="13" ry="10" fill="#2e1065" stroke="#e879f9" strokeWidth="1.6" />
                   <ellipse cx="28" cy="23" rx="6.5" ry="4.5" fill="#ff1744" />
                   <ellipse cx="28" cy="23" rx="1.6" ry="3.8" fill="#09030f" />
-                  <circle cx="19" cy="18" r="2.1" fill="#fb7185" />
-                  <circle cx="37" cy="18" r="2.1" fill="#fb7185" />
                 </svg>
               </div>
               <p className="text-xs text-fuchsia-100/90 leading-relaxed">{t.enemyEldritchDesc}</p>
+            </div>
+
+            {/* Open-World Mutated Giant Mecha & Colossus Card */}
+            <div className="flex items-center gap-3.5 p-3 rounded-lg bg-[#1d120a] border border-orange-700/60">
+              <div className="w-14 h-14 rounded-lg bg-[#120b06] border border-orange-600/50 flex items-center justify-center shrink-0">
+                <svg viewBox="0 0 56 56" className="w-12 h-12">
+                  <rect x="14" y="14" width="28" height="24" rx="5" fill="#292524" stroke="#f97316" strokeWidth="2" />
+                  <path d="M14 26 L5 20 L4 34 M42 26 L51 20 L52 34 M18 38 L12 49 M38 38 L44 49" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" fill="none" />
+                  <circle cx="23" cy="24" r="3" fill="#ff1744" />
+                  <circle cx="33" cy="24" r="3" fill="#ff1744" />
+                  <circle cx="28" cy="32" r="4" fill="#fb923c" />
+                </svg>
+              </div>
+              <p className="text-xs text-orange-100/90 leading-relaxed">{t.enemyMechaDesc}</p>
+            </div>
+
+            {/* Multi-Monster Fusion Chimera & Overlord Card */}
+            <div className="flex items-center gap-3.5 p-3 rounded-lg bg-[#1b0e18] border border-rose-700/60">
+              <div className="w-14 h-14 rounded-lg bg-[#11070f] border border-rose-600/50 flex items-center justify-center shrink-0">
+                <svg viewBox="0 0 56 56" className="w-12 h-12">
+                  <path d="M10 18 Q4 8 18 16 M46 18 Q52 8 38 16" stroke="#e879f9" strokeWidth="2.5" fill="none" />
+                  <rect x="16" y="18" width="24" height="22" rx="6" fill="#311042" stroke="#f43f5e" strokeWidth="2" />
+                  <circle cx="23" cy="28" r="3.5" fill="#10b981" />
+                  <circle cx="33" cy="28" r="3.5" fill="#38bdf8" />
+                  <circle cx="28" cy="20" r="3" fill="#ff1744" />
+                </svg>
+              </div>
+              <p className="text-xs text-rose-100/90 leading-relaxed">{t.enemyChimeraDesc}</p>
             </div>
           </div>
         </div>
@@ -439,4 +475,3 @@ export const FieldManualView: React.FC<{ t: TranslationStrings }> = ({ t }) => {
     </div>
   );
 };
-

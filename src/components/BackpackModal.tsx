@@ -118,28 +118,28 @@ export const BackpackModal: React.FC<BackpackModalProps> = ({
       key: 'oCore',
       icon: 'oCore',
       title: 'OpenAI Core',
-      desc: 'Authentic OpenAI logo core dropped by bots. Swap into equity vault or smelt for 5,000 $RU9.',
+      desc: t.oCoreDesc,
       countLabel: `x${portfolio.oCores}`,
     },
     {
       key: 'aCore',
       icon: 'aCore',
       title: 'Anthropic Core',
-      desc: 'Harvested from heavy A-Bulwark units. Swap into equity vault or smelt for 6,500 $RU9.',
+      desc: t.aCoreDesc,
       countLabel: `x${portfolio.aCores}`,
     },
     {
       key: 'ru9',
       icon: 'ru9',
-      title: '$RU9 Token (1M Auto-Refresh)',
-      desc: 'Each player starts with 1,000,000 $RU9 and automatically refreshes back to 1,000,000 whenever depleted.',
+      title: t.ru9Title,
+      desc: t.ru9Desc,
       countLabel: `${Math.round(portfolio.ru9).toLocaleString()}`,
     },
     {
       key: 'stock',
       icon: 'oaiStock',
-      title: 'Synthetic Equity Vault',
-      desc: `Holdings: ${portfolio.oaiShares.toFixed(2)} OpenAI · ${portfolio.anthShares.toFixed(2)} Anthropic`,
+      title: t.equityVaultTitle,
+      desc: `OpenAI: ${portfolio.oaiShares.toFixed(2)} · Anthropic: ${portfolio.anthShares.toFixed(2)}`,
       countLabel: `${(portfolio.oaiShares + portfolio.anthShares).toFixed(1)} sh`,
     },
   ];
@@ -230,7 +230,7 @@ export const BackpackModal: React.FC<BackpackModalProps> = ({
               </div>
             </div>
 
-            {/* Captured Blue-Eyed AI Partners */}
+            {/* Tamed Cyber Pets */}
             {portfolio.companions.map((comp) => (
               <div
                 key={comp.id}
@@ -242,7 +242,7 @@ export const BackpackModal: React.FC<BackpackModalProps> = ({
                 />
                 <div className="min-w-0 flex-1">
                   <div className="text-xs text-sky-400 font-mono tabular-nums">
-                    BLUE-EYE ALLY · {t.levelLabel}.{comp.level}
+                    {t.petTag} · {t.levelLabel}.{comp.level}
                   </div>
                   <div className="text-sm font-semibold text-white truncate">{comp.nickname}</div>
                   <div className="text-xs text-zinc-400 truncate">
@@ -285,7 +285,9 @@ export const BackpackModal: React.FC<BackpackModalProps> = ({
                         {w.name}
                       </div>
                       {isEq && (
-                        <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-400" />
+                        <span className="mt-0.5 inline-block text-[9px] font-mono font-semibold text-emerald-400">
+                          {t.equippedTag}
+                        </span>
                       )}
                     </button>
                   );
@@ -334,7 +336,7 @@ export const BackpackModal: React.FC<BackpackModalProps> = ({
                       }`}
                     >
                       <div className="w-full flex items-center justify-between text-[10px] font-mono text-sky-400">
-                        <span>ALLY</span>
+                        <span>{t.petTag}</span>
                         <span>Lv.{comp.level}</span>
                       </div>
                       <ItemPreviewArt

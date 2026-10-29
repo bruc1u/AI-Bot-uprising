@@ -2,32 +2,22 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Crosshair, Maximize2, Move, X, Zap } from 'lucide-react';
 import { SimState } from '../game/engineStep';
 import { TranslationStrings } from '../i18n/translations';
-import { EnemyKind, PlayerPortfolio } from '../types/game';
+import { EnemyKind } from '../types/game';
 
 interface MobileTouchControlsProps {
   t: TranslationStrings;
   simRef: React.MutableRefObject<SimState>;
-  portfolio: PlayerPortfolio;
   dashReady: boolean;
   forceVisible: boolean;
   onTriggerDash: () => void;
-  onThrowOrb: () => void;
-  onUseMedkit: () => void;
-  onUseEnergyPack: () => void;
-  onUsePetChip: () => void;
 }
 
 export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
   t,
   simRef,
-  portfolio,
   dashReady,
   forceVisible,
   onTriggerDash,
-  onThrowOrb,
-  onUseMedkit,
-  onUseEnergyPack,
-  onUsePetChip,
 }) => {
   const [isTouchDevice, setIsTouchDevice] = useState<boolean>(false);
   const [isPortraitMobile, setIsPortraitMobile] = useState<boolean>(false);
@@ -91,7 +81,7 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
         await scr.orientation.lock('landscape');
       }
     } catch {
-      // iOS Safari & framed browsers require physical device rotation; ignore lock rejection cleanly
+      // Ignore orientation lock rejection on browsers requiring physical rotation
     }
     setDismissedPortraitHint(true);
   };
@@ -100,7 +90,7 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
     return null;
   }
 
-  const MAX_RADIUS = 42;
+  const MAX_RADIUS = 30;
 
   const updateLeftStick = (clientX: number, clientY: number) => {
     const el = leftZoneRef.current;
@@ -147,11 +137,10 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
     s.touchAimActive = true;
     s.mouseDown = true;
 
-    if (dist > 10) {
+    if (dist > 9) {
       s.aimAngle = ang;
       s.facingRight = Math.cos(ang) >= 0;
     } else {
-      // Quick center tap auto-locks onto nearest hostile monster within 560px!
       let bestDist = 560;
       let bestAng = s.aimAngle;
       for (const e of s.enemies) {
@@ -182,34 +171,34 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
 
   return (
     <>
-      {/* Portrait Orientation Landscape Helper Bar */}
+      {/* Portrait Orientation Helper Bar */}
       {isPortraitMobile && !dismissedPortraitHint && (
-        <div className="pointer-events-auto absolute top-14 left-2.5 right-2.5 z-30 bg-[#0b0f19]/95 border border-cyan-500/60 rounded-xl px-3 py-2 flex items-center justify-between gap-2 shadow-xl backdrop-blur-md">
-          <span className="text-xs text-slate-200 font-medium leading-snug">
+        <div className="pointer-events-auto absolute top-11 left-2 right-2 z-30 bg-[#0b0f19]/92 border border-cyan-500/60 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2 shadow-lg backdrop-blur-sm">
+          <span className="text-[11px] text-slate-200 font-medium truncate">
             {t.landscapePrompt}
           </span>
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             <button
               type="button"
               onClick={requestLandscapeFullscreen}
-              className="min-h-[44px] px-3 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold inline-flex items-center gap-1.5 whitespace-nowrap transition-colors"
+              className="min-h-[36px] px-2.5 rounded-md bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-[11px] font-bold inline-flex items-center gap-1 whitespace-nowrap"
             >
-              <Maximize2 className="w-3.5 h-3.5" />
+              <Maximize2 className="w-3 h-3" />
               {t.enterLandscapeBtn}
             </button>
             <button
               type="button"
               onClick={() => setDismissedPortraitHint(true)}
               aria-label="Dismiss"
-              className="min-h-[44px] min-w-[44px] rounded-lg bg-slate-900 border border-slate-700 text-slate-300 flex items-center justify-center"
+              className="min-h-[36px] min-w-[36px] rounded-md bg-slate-900 border border-slate-700 text-slate-300 flex items-center justify-center"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
       )}
 
-      {/* LEFT VIRTUAL THUMBSTICK: 360° Analog Movement */}
+      {/* COMPACT TRANSLUCENT LEFT THUMBSTICK (Tucked into Bottom-Left Corner) */}
       <div
         ref={leftZoneRef}
         onPointerDown={(e) => {
@@ -233,137 +222,81 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
             resetLeftStick();
           }
         }}
-        className="pointer-events-auto touch-none absolute bottom-20 sm:bottom-24 left-4 z-20 w-28 h-28 rounded-full bg-[#090d16]/55 border-2 border-cyan-400/45 backdrop-blur-[2px] flex items-center justify-center shadow-lg"
+        className={`pointer-events-auto touch-none absolute bottom-3 left-3 z-20 w-[78px] h-[78px] rounded-full border border-cyan-400/40 bg-[#090d16]/35 flex items-center justify-center transition-opacity ${
+          leftKnob.active ? 'opacity-95' : 'opacity-50 hover:opacity-80'
+        }`}
       >
-        <div className="w-16 h-16 rounded-full border border-cyan-400/20 flex items-center justify-center pointer-events-none">
-          {!leftKnob.active && <Move className="w-5 h-5 text-cyan-300/50" />}
-        </div>
         <div
-          className={`pointer-events-none absolute w-12 h-12 rounded-full border-2 flex items-center justify-center transition-transform duration-75 ${
+          className={`pointer-events-none w-9 h-9 rounded-full border flex items-center justify-center transition-transform duration-75 ${
             leftKnob.active
-              ? 'bg-cyan-400/40 border-cyan-300 shadow-md shadow-cyan-500/30'
-              : 'bg-slate-800/75 border-cyan-400/60'
+              ? 'bg-cyan-400/45 border-cyan-200'
+              : 'bg-slate-900/65 border-cyan-400/60'
           }`}
           style={{
             transform: `translate(${leftKnob.x}px, ${leftKnob.y}px)`,
           }}
         >
-          <span className="text-[9px] font-mono font-bold text-cyan-100">MOVE</span>
+          <Move className="w-3.5 h-3.5 text-cyan-200" />
         </div>
       </div>
 
-      {/* RIGHT VIRTUAL THUMBSTICK + ERGONOMIC 44px+ ACTION CLUSTER */}
-      <div className="pointer-events-none absolute bottom-20 sm:bottom-24 right-4 z-20 flex items-end gap-2.5">
-        {/* Tactical Quick Action Touch Buttons (>= 44px touch targets) */}
-        <div className="pointer-events-auto flex flex-col gap-2">
-          <button
-            type="button"
-            onPointerDown={(e) => {
-              e.stopPropagation();
-              onTriggerDash();
-            }}
-            className={`min-h-[46px] min-w-[58px] px-2.5 rounded-xl border-2 font-mono text-xs font-bold flex items-center justify-center gap-1 shadow-md transition-colors ${
-              dashReady
-                ? 'bg-[#12192b]/90 border-[#d9ff00] text-[#d9ff00] active:bg-[#d9ff00]/20'
-                : 'bg-[#090d16]/75 border-slate-700 text-slate-500'
-            }`}
-          >
-            <Zap className="w-3.5 h-3.5" />
-            {t.dashBtn}
-          </button>
+      {/* COMPACT ROUND DASH BUTTON + TRANSLUCENT RIGHT THUMBSTICK (Bottom-Right Corner) */}
+      <button
+        type="button"
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          onTriggerDash();
+        }}
+        aria-label={t.dashBtn}
+        title={t.dashBtn}
+        className={`pointer-events-auto touch-none absolute bottom-14 right-[96px] z-20 w-11 h-11 rounded-full border flex flex-col items-center justify-center font-mono text-[8px] font-bold transition-all ${
+          dashReady
+            ? 'bg-[#0c1322]/70 border-[#d9ff00]/80 text-[#d9ff00] opacity-75 active:scale-95 active:opacity-100'
+            : 'bg-[#090d16]/45 border-slate-700/70 text-slate-500 opacity-45'
+        }`}
+      >
+        <Zap className="w-3.5 h-3.5" />
+        <span>DASH</span>
+      </button>
 
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                onThrowOrb();
-              }}
-              className="min-h-[44px] min-w-[46px] px-1.5 rounded-xl bg-[#0e1526]/90 border border-sky-400/60 text-sky-200 font-mono text-[10px] font-bold flex flex-col items-center justify-center active:bg-sky-500/30"
-            >
-              <span>ORB</span>
-              <span className="text-[9px] text-sky-400">x{portfolio.masterSpheres}</span>
-            </button>
-            <button
-              type="button"
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                onUseMedkit();
-              }}
-              className="min-h-[44px] min-w-[46px] px-1.5 rounded-xl bg-[#0e1526]/90 border border-emerald-400/60 text-emerald-200 font-mono text-[10px] font-bold flex flex-col items-center justify-center active:bg-emerald-500/30"
-            >
-              <span>HP</span>
-              <span className="text-[9px] text-emerald-400">x{portfolio.medkits}</span>
-            </button>
-            {portfolio.companions.length > 0 ? (
-              <button
-                type="button"
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  onUsePetChip();
-                }}
-                className="min-h-[44px] min-w-[46px] px-1.5 rounded-xl bg-[#0e1526]/90 border border-cyan-400/60 text-cyan-200 font-mono text-[10px] font-bold flex flex-col items-center justify-center active:bg-cyan-500/30"
-              >
-                <span>PET</span>
-                <span className="text-[9px] text-cyan-400">x{portfolio.firmwarePatches}</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  onUseEnergyPack();
-                }}
-                className="min-h-[44px] min-w-[46px] px-1.5 rounded-xl bg-[#0e1526]/90 border border-amber-400/60 text-amber-200 font-mono text-[10px] font-bold flex flex-col items-center justify-center active:bg-amber-500/30"
-              >
-                <span>CELL</span>
-                <span className="text-[9px] text-amber-400">x{portfolio.energyPacks}</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Right Twin-Stick Aim & Auto-Fire Pad */}
-        <div
-          ref={rightZoneRef}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            e.currentTarget.setPointerCapture(e.pointerId);
-            rightPointerId.current = e.pointerId;
+      <div
+        ref={rightZoneRef}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          e.currentTarget.setPointerCapture(e.pointerId);
+          rightPointerId.current = e.pointerId;
+          updateRightStick(e.clientX, e.clientY);
+        }}
+        onPointerMove={(e) => {
+          if (rightPointerId.current === e.pointerId) {
             updateRightStick(e.clientX, e.clientY);
+          }
+        }}
+        onPointerUp={(e) => {
+          if (rightPointerId.current === e.pointerId) {
+            resetRightStick();
+          }
+        }}
+        onPointerCancel={(e) => {
+          if (rightPointerId.current === e.pointerId) {
+            resetRightStick();
+          }
+        }}
+        className={`pointer-events-auto touch-none absolute bottom-3 right-3 z-20 w-[78px] h-[78px] rounded-full border border-rose-500/45 bg-[#160a12]/35 flex items-center justify-center transition-opacity ${
+          rightKnob.active ? 'opacity-95' : 'opacity-50 hover:opacity-80'
+        }`}
+      >
+        <div
+          className={`pointer-events-none w-9 h-9 rounded-full border flex items-center justify-center transition-transform duration-75 ${
+            rightKnob.active
+              ? 'bg-rose-500/50 border-rose-200'
+              : 'bg-slate-900/65 border-rose-500/65'
+          }`}
+          style={{
+            transform: `translate(${rightKnob.x}px, ${rightKnob.y}px)`,
           }}
-          onPointerMove={(e) => {
-            if (rightPointerId.current === e.pointerId) {
-              updateRightStick(e.clientX, e.clientY);
-            }
-          }}
-          onPointerUp={(e) => {
-            if (rightPointerId.current === e.pointerId) {
-              resetRightStick();
-            }
-          }}
-          onPointerCancel={(e) => {
-            if (rightPointerId.current === e.pointerId) {
-              resetRightStick();
-            }
-          }}
-          className="pointer-events-auto touch-none relative w-28 h-28 rounded-full bg-[#1a0b14]/60 border-2 border-rose-500/55 backdrop-blur-[2px] flex items-center justify-center shadow-lg"
         >
-          <div className="w-16 h-16 rounded-full border border-rose-500/25 flex items-center justify-center pointer-events-none">
-            {!rightKnob.active && <Crosshair className="w-5 h-5 text-rose-400/65" />}
-          </div>
-          <div
-            className={`pointer-events-none absolute w-12 h-12 rounded-full border-2 flex items-center justify-center transition-transform duration-75 ${
-              rightKnob.active
-                ? 'bg-rose-500/50 border-rose-300 shadow-md shadow-rose-500/40'
-                : 'bg-slate-900/80 border-rose-500/70'
-            }`}
-            style={{
-              transform: `translate(${rightKnob.x}px, ${rightKnob.y}px)`,
-            }}
-          >
-            <span className="text-[9px] font-mono font-bold text-rose-100">FIRE</span>
-          </div>
+          <Crosshair className="w-3.5 h-3.5 text-rose-200" />
         </div>
       </div>
     </>

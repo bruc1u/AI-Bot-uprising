@@ -16,6 +16,8 @@ interface BackpackModalProps {
   onClose: () => void;
   onSelectSkin: (skin: PlayerSkinId) => void;
   onSelectWeapon: (weapon: WeaponId) => void;
+  onUpgradeWeapon?: (weapon: WeaponId) => void;
+  onBuySupply?: (item: 'sphere' | 'ammo' | 'medkit' | 'patch') => void;
   onUseConsumable: (kind: 'medkit' | 'ammo' | 'patch') => void;
   onSmeltCore: (coreType: 'oCore' | 'aCore') => void;
   onDeployCompanion: (id: string) => void;
@@ -32,6 +34,8 @@ export const BackpackModal: React.FC<BackpackModalProps> = ({
   onClose,
   onSelectSkin,
   onSelectWeapon,
+  onUpgradeWeapon,
+  onBuySupply,
   onUseConsumable,
   onSmeltCore,
   onDeployCompanion,
@@ -357,6 +361,9 @@ export const BackpackModal: React.FC<BackpackModalProps> = ({
               {selected.type === 'weapon' && (() => {
                 const w = weaponCatalog.find((x) => x.id === selected.weaponId) || weaponCatalog[0];
                 const isEquipped = portfolio.equippedWeapon === w.id;
+                const lvl = portfolio.weaponLevels[w.id] || 1;
+                const needsO = w.id === WeaponId.ARC_BLADE || w.id === WeaponId.PULSE_LASER;
+                const canUpg = lvl < 5 && (needsO ? portfolio.oCores >= lvl : portfolio.aCores >= lvl);
                 return (
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="w-40 shrink-0 bg-zinc-900/90 border border-zinc-800 rounded-lg p-2">
@@ -364,20 +371,32 @@ export const BackpackModal: React.FC<BackpackModalProps> = ({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-mono text-rose-400 mb-0.5">
-                        {w.stats} · {t.levelLabel} {portfolio.weaponLevels[w.id]}/5
+                        {w.stats} · {t.levelLabel} {lvl}/5
                       </div>
                       <h3 className="text-base font-bold text-white">{w.name}</h3>
                       <p className="text-xs text-zinc-400 mt-1">{w.desc}</p>
                     </div>
-                    <button
-                      type="button"
-                      disabled={isEquipped}
-                      onClick={() => onSelectWeapon(w.id)}
-                      className="px-4 py-2.5 text-xs font-semibold rounded-lg bg-rose-600 hover:bg-rose-500 disabled:bg-zinc-800 disabled:text-emerald-400 text-white transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      {isEquipped ? t.equippedTag : t.equipBtn}
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      {onUpgradeWeapon && lvl < 5 && (
+                        <button
+                          type="button"
+                          disabled={!canUpg}
+                          onClick={() => onUpgradeWeapon(w.id)}
+                          className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 border border-zinc-600 text-amber-300 transition-colors whitespace-nowrap"
+                        >
+                          {t.upgradeBtn}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={isEquipped}
+                        onClick={() => onSelectWeapon(w.id)}
+                        className="px-4 py-2 text-xs font-semibold rounded-lg bg-rose-600 hover:bg-rose-500 disabled:bg-zinc-800 disabled:text-emerald-400 text-white transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        {isEquipped ? t.equippedTag : t.equipBtn}
+                      </button>
+                    </div>
                   </div>
                 );
               })()}
@@ -404,28 +423,40 @@ export const BackpackModal: React.FC<BackpackModalProps> = ({
                       <h3 className="text-base font-bold text-white">{it.title}</h3>
                       <p className="text-xs text-zinc-400 mt-1">{it.desc}</p>
                     </div>
-                    {(it.key === 'medkit' || it.key === 'ammo' || it.key === 'patch') && (
-                      <button
-                        type="button"
-                        disabled={!canUse}
-                        onClick={() => onUseConsumable(it.key as 'medkit' | 'ammo' | 'patch')}
-                        className="px-4 py-2.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0"
-                      >
-                        <Zap className="w-3.5 h-3.5" />
-                        {t.useItemBtn}
-                      </button>
-                    )}
-                    {(it.key === 'oCore' || it.key === 'aCore') && (
-                      <button
-                        type="button"
-                        disabled={!canSmelt}
-                        onClick={() => onSmeltCore(it.key as 'oCore' | 'aCore')}
-                        className="px-4 py-2.5 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-400 disabled:bg-zinc-800 disabled:text-zinc-500 text-zinc-950 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0"
-                      >
-                        <Flame className="w-3.5 h-3.5" />
-                        {t.smeltToRu9Btn}
-                      </button>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      {(it.key === 'sphere' || it.key === 'medkit' || it.key === 'ammo' || it.key === 'patch') &&
+                        onBuySupply && (
+                          <button
+                            type="button"
+                            onClick={() => onBuySupply(it.key as 'sphere' | 'ammo' | 'medkit' | 'patch')}
+                            className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-amber-300 transition-colors whitespace-nowrap"
+                          >
+                            + {t.buyBtn}
+                          </button>
+                        )}
+                      {(it.key === 'medkit' || it.key === 'ammo' || it.key === 'patch') && (
+                        <button
+                          type="button"
+                          disabled={!canUse}
+                          onClick={() => onUseConsumable(it.key as 'medkit' | 'ammo' | 'patch')}
+                          className="px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                        >
+                          <Zap className="w-3.5 h-3.5" />
+                          {t.useItemBtn}
+                        </button>
+                      )}
+                      {(it.key === 'oCore' || it.key === 'aCore') && (
+                        <button
+                          type="button"
+                          disabled={!canSmelt}
+                          onClick={() => onSmeltCore(it.key as 'oCore' | 'aCore')}
+                          className="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-400 disabled:bg-zinc-800 disabled:text-zinc-500 text-zinc-950 transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                        >
+                          <Flame className="w-3.5 h-3.5" />
+                          {t.smeltToRu9Btn}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })()}

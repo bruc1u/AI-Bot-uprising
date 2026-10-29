@@ -70,6 +70,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>(ActiveTab.ARENA);
   const [backpackOpen, setBackpackOpen] = useState<boolean>(false);
   const [langMenuOpen, setLangMenuOpen] = useState<boolean>(false);
+  const [arenaPlaying, setArenaPlaying] = useState<boolean>(false);
+  const [forceShowTopBar, setForceShowTopBar] = useState<boolean>(false);
   const langMenuRef = useRef<HTMLDivElement | null>(null);
 
   const [portfolio, setPortfolio] = useState<PlayerPortfolio>(() => {
@@ -452,143 +454,123 @@ export default function App() {
     { id: ActiveTab.MANUAL, label: t.navManual },
   ];
 
+  const topBarHidden = activeTab === ActiveTab.ARENA && arenaPlaying && !forceShowTopBar;
+
   return (
     <div className="min-h-dvh bg-[#06080f] text-slate-100 flex flex-col">
-      {/* PRIMARY COMPACT 3-ZONE TOP HEADER */}
-      <header className="h-11 border-b border-slate-800/90 bg-[#090c15] px-3 lg:px-5 flex items-center justify-between gap-3 z-30">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <img
-            src={ASSET_URLS.VIBEVIBE_LOGO}
-            alt="vibe/vibe"
-            referrerPolicy="no-referrer"
-            className="h-6 w-auto rounded bg-black px-1.5 py-0.5 object-contain border border-slate-800 shrink-0"
-          />
-          <span
-            className="text-base sm:text-lg font-bold tracking-tight text-white truncate"
-            style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
-          >
-            {t.brandTitle}
-          </span>
-        </div>
+      {/* SINGLE COMPACT 40px TOP BAR (Auto-Hides During Active Combat for 100% Fullscreen Arena!) */}
+      {!topBarHidden && (
+        <header className="h-10 border-b border-slate-800/90 bg-[#090c15] px-2.5 lg:px-4 flex items-center justify-between gap-2 z-30">
+          {/* Brand */}
+          <div className="flex items-center gap-2 shrink-0">
+            <img
+              src={ASSET_URLS.VIBEVIBE_LOGO}
+              alt="vibe/vibe"
+              referrerPolicy="no-referrer"
+              className="h-5 w-auto rounded bg-black px-1 py-0.5 object-contain border border-slate-800 shrink-0"
+            />
+            <span
+              className="hidden xl:inline text-base font-bold tracking-tight text-white whitespace-nowrap"
+              style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
+            >
+              {t.brandTitle}
+            </span>
+          </div>
 
-        <nav className="hidden md:flex items-center gap-5">
-          {navItems.map((item) => {
-            const active = activeTab === item.id;
-            return (
+          {/* Single-Line Navigation Links */}
+          <nav className="flex items-center gap-1 sm:gap-3.5 overflow-x-auto">
+            {navItems.map((item) => {
+              const active = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveTab(item.id)}
+                  className={`py-2 px-1.5 text-[11px] sm:text-xs font-semibold border-b-2 transition-colors whitespace-nowrap shrink-0 ${
+                    active
+                      ? 'border-rose-500 text-white'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Compact Inline Asset Balances + Language + Backpack */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="hidden md:flex items-center gap-2.5 text-[11px] font-mono tabular-nums">
+              <span className="inline-flex items-center gap-1">
+                <ItemPreviewArt kind="ru9" className="w-4 h-4 shrink-0" />
+                <span className="hidden lg:inline text-slate-400">$RU9</span>
+                <strong className="text-amber-400">
+                  {Math.round(portfolio.ru9).toLocaleString()}
+                </strong>
+              </span>
+              <span className="text-slate-700">·</span>
+              <span className="inline-flex items-center gap-1">
+                <ItemPreviewArt kind="oCore" className="w-4 h-4 shrink-0" />
+                <span className="hidden lg:inline text-slate-300">OpenAI Core</span>
+                <strong className="text-white">{portfolio.oCores}</strong>
+              </span>
+              <span className="text-slate-700">·</span>
+              <span className="inline-flex items-center gap-1">
+                <ItemPreviewArt kind="aCore" className="w-4 h-4 shrink-0" />
+                <span className="hidden lg:inline text-slate-300">Anthropic Core</span>
+                <strong className="text-cyan-400">{portfolio.aCores}</strong>
+              </span>
+            </div>
+
+            <div ref={langMenuRef} className="relative">
               <button
-                key={item.id}
                 type="button"
-                onClick={() => setActiveTab(item.id)}
-                className={`py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap ${
-                  active
-                    ? 'border-rose-500 text-white'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
-                }`}
+                onClick={() => setLangMenuOpen((v) => !v)}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#111624] hover:bg-[#171e30] border border-slate-700/90 text-[11px] font-medium text-slate-200 transition-colors whitespace-nowrap"
               >
-                {item.label}
+                <Globe className="w-3 h-3 text-slate-400" />
+                <span className="uppercase font-mono">{lang}</span>
+                <ChevronDown className="w-3 h-3 text-slate-400" />
               </button>
-            );
-          })}
-        </nav>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setBackpackOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-100 transition-colors whitespace-nowrap"
-          >
-            <Backpack className="w-3.5 h-3.5 text-[#d9ff00]" />
-            <span>{t.backpackBtn}</span>
-          </button>
-        </div>
-      </header>
+              {langMenuOpen && (
+                <div className="absolute right-0 mt-1 w-40 rounded-lg bg-[#0e1320] border border-slate-700 shadow-xl py-1 z-50">
+                  {(Object.keys(LANGUAGE_LABELS) as Language[]).map((code) => {
+                    const selected = code === lang;
+                    return (
+                      <button
+                        key={code}
+                        type="button"
+                        onClick={() => {
+                          setLang(code);
+                          setLangMenuOpen(false);
+                        }}
+                        className={`w-full px-3 py-1.5 text-left text-xs flex items-center justify-between transition-colors ${
+                          selected
+                            ? 'bg-rose-600/20 text-white font-semibold'
+                            : 'text-slate-300 hover:bg-slate-800/80'
+                        }`}
+                      >
+                        <span>{LANGUAGE_LABELS[code]}</span>
+                        <span className="font-mono uppercase text-[10px] text-slate-400">{code}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
-      {/* COMPACT TOP HUD SUB-BAR ($RU9, OpenAI Core, Anthropic Core + Language Menu — NO Stock Price Ticker) */}
-      <div className="min-h-9 border-b border-slate-800/80 bg-[#0b0f1a] px-3 lg:px-5 py-1 flex flex-wrap items-center justify-between gap-2.5 z-20">
-        <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs font-mono tabular-nums">
-          <div className="flex items-center gap-1.5">
-            <ItemPreviewArt kind="ru9" className="w-5 h-5 shrink-0" />
-            <span className="text-slate-400">$RU9</span>
-            <strong className="text-amber-400 text-xs sm:text-sm">
-              {Math.round(portfolio.ru9).toLocaleString()}
-            </strong>
-          </div>
-
-          <span className="text-slate-800">·</span>
-
-          <div className="flex items-center gap-1.5">
-            <ItemPreviewArt kind="oCore" className="w-5 h-5 shrink-0" />
-            <span className="text-slate-300">OpenAI Core</span>
-            <strong className="text-white text-xs sm:text-sm">{portfolio.oCores}</strong>
-          </div>
-
-          <span className="text-slate-800">·</span>
-
-          <div className="flex items-center gap-1.5">
-            <ItemPreviewArt kind="aCore" className="w-5 h-5 shrink-0" />
-            <span className="text-slate-300">Anthropic Core</span>
-            <strong className="text-cyan-400 text-xs sm:text-sm">{portfolio.aCores}</strong>
-          </div>
-        </div>
-
-        {/* Mobile Nav Switcher + Compact Language Dropdown Menu */}
-        <div className="flex items-center gap-2.5 ml-auto">
-          <div className="flex md:hidden items-center gap-1 overflow-x-auto">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setActiveTab(item.id)}
-                className={`px-2 py-1 text-xs rounded ${
-                  activeTab === item.id ? 'bg-rose-600 text-white' : 'text-slate-400'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          <div ref={langMenuRef} className="relative">
             <button
               type="button"
-              onClick={() => setLangMenuOpen((v) => !v)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#111624] hover:bg-[#171e30] border border-slate-700/90 text-xs font-medium text-slate-200 transition-colors"
+              onClick={() => setBackpackOpen(true)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[11px] font-semibold text-slate-100 transition-colors whitespace-nowrap"
             >
-              <Globe className="w-3.5 h-3.5 text-slate-400" />
-              <span>
-                {t.languageMenu}: {LANGUAGE_LABELS[lang]}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              <Backpack className="w-3.5 h-3.5 text-[#d9ff00]" />
+              <span className="hidden sm:inline">{t.backpackBtn}</span>
             </button>
-
-            {langMenuOpen && (
-              <div className="absolute right-0 mt-1.5 w-44 rounded-lg bg-[#0e1320] border border-slate-700 shadow-xl py-1 z-50">
-                {(Object.keys(LANGUAGE_LABELS) as Language[]).map((code) => {
-                  const selected = code === lang;
-                  return (
-                    <button
-                      key={code}
-                      type="button"
-                      onClick={() => {
-                        setLang(code);
-                        setLangMenuOpen(false);
-                      }}
-                      className={`w-full px-3.5 py-2 text-left text-xs flex items-center justify-between transition-colors ${
-                        selected
-                          ? 'bg-rose-600/20 text-white font-semibold'
-                          : 'text-slate-300 hover:bg-slate-800/80'
-                      }`}
-                    >
-                      <span>{LANGUAGE_LABELS[code]}</span>
-                      <span className="font-mono uppercase text-[10px] text-slate-400">{code}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
           </div>
-        </div>
-      </div>
+        </header>
+      )}
 
       {/* MAIN VIEWPORT */}
       <main className="flex-1 w-full">
@@ -597,6 +579,12 @@ export default function App() {
             t={t}
             portfolio={portfolio}
             isBackpackOpen={backpackOpen}
+            topBarHidden={topBarHidden}
+            onToggleTopBar={() => setForceShowTopBar((v) => !v)}
+            onPlayingStateChange={(playing) => {
+              setArenaPlaying(playing);
+              if (playing) setForceShowTopBar(false);
+            }}
             onOpenBackpack={() => setBackpackOpen(true)}
             onSelectSkin={(skin) => setPortfolio((p) => ({ ...p, selectedSkin: skin }))}
             onSelectWeapon={(weapon) => setPortfolio((p) => ({ ...p, equippedWeapon: weapon }))}
@@ -660,6 +648,8 @@ export default function App() {
           onClose={() => setBackpackOpen(false)}
           onSelectSkin={(skin) => setPortfolio((p) => ({ ...p, selectedSkin: skin }))}
           onSelectWeapon={(weapon) => setPortfolio((p) => ({ ...p, equippedWeapon: weapon }))}
+          onUpgradeWeapon={handleUpgradeWeapon}
+          onBuySupply={handleBuySupply}
           onUseConsumable={handleBackpackConsumable}
           onSmeltCore={handleSmeltCoreToRu9}
           onDeployCompanion={(id) => setPortfolio((p) => ({ ...p, activeCompanionId: id }))}

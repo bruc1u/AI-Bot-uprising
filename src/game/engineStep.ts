@@ -1,10 +1,18 @@
 import {
+  ArmorId,
   CompanionInstance,
   CompanionKind,
   EnemyKind,
   PlayerSkinId,
   WeaponId,
 } from '../types/game';
+import { computeArmorStats } from './equipmentConfig';
+import {
+  BatParticle,
+  drawBatParticles25D,
+  drawHalloweenPumpkinProp25D,
+  HalloweenPumpkinProp,
+} from './halloweenSprites';
 import {
   drawCompanionSprite25D,
   drawEnemySprite25D,
@@ -69,6 +77,10 @@ export interface SimState {
   touchAimActive: boolean;
   keys: Set<string>;
   hp: number;
+  maxHp: number;
+  shield: number;
+  maxShield: number;
+  shieldRegenDelay: number;
   invulnTimer: number;
   dashCooldown: number;
   dashActiveTimer: number;
@@ -100,6 +112,10 @@ export interface SimState {
       | 'eldritch_orb'
       | 'plasma_saw'
       | 'cannon_shell'
+      | 'plasma_pellet'
+      | 'singularity_orb'
+      | 'jack_bomb'
+      | 'spectral_skull'
       | 'master_sphere';
     damage: number;
     targetEnemyId?: string;
@@ -109,9 +125,11 @@ export interface SimState {
   slashes: { x: number; y: number; angle: number; radius: number; color: string; isEmp: boolean; life: number }[];
   puddles: { x: number; y: number; rx: number; color: string; alpha: number }[];
   particles: { x: number; y: number; vx: number; vy: number; size: number; color: string; life: number; maxLife: number }[];
+  batParticles: BatParticle[];
   floatTexts: { x: number; y: number; text: string; color: string; life: number }[];
-  drops: { id: string; x: number; y: number; kind: 'oCore' | 'aCore' | 'ammo'; amount: number }[];
+  drops: { id: string; x: number; y: number; kind: 'oCore' | 'aCore' | 'ru9' | 'ammo' | 'candy'; amount: number }[];
   chests: FieldChest[];
+  halloweenProps: HalloweenPumpkinProp[];
   dogX: number;
   dogY: number;
   dogFacingRight: boolean;
@@ -120,6 +138,21 @@ export interface SimState {
   catY: number;
   catFacingRight: boolean;
   catAttackCd: number;
+  pumpkinPetX: number;
+  pumpkinPetY: number;
+  pumpkinPetFacingRight: boolean;
+  pumpkinPetAttackCd: number;
+  pumpkinCandyTimer: number;
+  batPetX: number;
+  batPetY: number;
+  batPetFacingRight: boolean;
+  batPetAttackCd: number;
+  batLeechHits: number;
+  sugarRushTimer: number;
+  bloodMoonTimer: number;
+  altarChargeProgress: number;
+  altarTriggeredThisWave: boolean;
+  secret666TriggeredThisWave: boolean;
   waveNum: number;
 }
 
@@ -141,6 +174,10 @@ export function createInitialSimState(): SimState {
     touchAimActive: false,
     keys: new Set<string>(),
     hp: MAX_PLAYER_HP,
+    maxHp: MAX_PLAYER_HP,
+    shield: 25,
+    maxShield: 25,
+    shieldRegenDelay: 0,
     invulnTimer: 0,
     dashCooldown: 0,
     dashActiveTimer: 0,
@@ -157,6 +194,10 @@ export function createInitialSimState(): SimState {
       [WeaponId.CHAINSAW_SWORD]: 0,
       [WeaponId.PULSE_LASER]: 0,
       [WeaponId.DISRUPTOR_CANNON]: 0,
+      [WeaponId.PLASMA_SCATTERGUN]: 0,
+      [WeaponId.TESLA_ARC_EMITTER]: 0,
+      [WeaponId.GAUSS_RAILGUN]: 0,
+      [WeaponId.SINGULARITY_LAUNCHER]: 0,
     },
     swapComboTimer: 0,
     passiveAmmoTimer: 0,
@@ -169,9 +210,11 @@ export function createInitialSimState(): SimState {
     slashes: [],
     puddles: [],
     particles: [],
+    batParticles: [],
     floatTexts: [],
     drops: [],
     chests: [],
+    halloweenProps: [],
     dogX: PLAYER_SPAWN_X - 58,
     dogY: PLAYER_SPAWN_Y + 18,
     dogFacingRight: true,
@@ -180,11 +223,30 @@ export function createInitialSimState(): SimState {
     catY: PLAYER_SPAWN_Y + 18,
     catFacingRight: true,
     catAttackCd: 0,
+    pumpkinPetX: PLAYER_SPAWN_X - 46,
+    pumpkinPetY: PLAYER_SPAWN_Y - 34,
+    pumpkinPetFacingRight: true,
+    pumpkinPetAttackCd: 0,
+    pumpkinCandyTimer: 9,
+    batPetX: PLAYER_SPAWN_X + 46,
+    batPetY: PLAYER_SPAWN_Y - 40,
+    batPetFacingRight: true,
+    batPetAttackCd: 0,
+    batLeechHits: 0,
+    sugarRushTimer: 0,
+    bloodMoonTimer: 0,
+    altarChargeProgress: 0,
+    altarTriggeredThisWave: false,
+    secret666TriggeredThisWave: false,
     waveNum: 1,
   };
 }
 
-export function buildWaveEnemies(waveNum: number): { enemies: InternalEnemy[]; chests: FieldChest[] } {
+export function buildWaveEnemies(waveNum: number): {
+  enemies: InternalEnemy[];
+  chests: FieldChest[];
+  halloweenProps: HalloweenPumpkinProp[];
+} {
   const indoorRoomSpawns = [
     // Sector A1: OpenAI Neural Server Vault
     { x: 520, y: 460 },
@@ -376,6 +438,46 @@ export function buildWaveEnemies(waveNum: number): { enemies: InternalEnemy[]; c
     );
   }
 
+  // HALLOWEEN LEGIONS IN INDOOR VAULTS (Pumpkin Scythe Reapers, Spectral Banshees & Franken-Stitch Elites!)
+  const indoorReaperCount = 4 + Math.floor(waveNum * 0.8);
+  for (let i = 0; i < indoorReaperCount; i++) {
+    enemies.push(
+      mk(
+        `hw-rp-in-${waveNum}-${i}`,
+        EnemyKind.PUMPKIN_SCYTHE_REAPER,
+        165 + waveNum * 26,
+        20,
+        99,
+        jitter(indoorRoomSpawns[inIdx++ % indoorRoomSpawns.length], 130)
+      )
+    );
+  }
+
+  const indoorBansheeCount = 3 + Math.floor(waveNum * 0.6);
+  for (let i = 0; i < indoorBansheeCount; i++) {
+    enemies.push(
+      mk(
+        `hw-bn-in-${waveNum}-${i}`,
+        EnemyKind.SPECTRAL_BANSHEE_WRAITH,
+        135 + waveNum * 22,
+        15,
+        99,
+        jitter(indoorRoomSpawns[inIdx++ % indoorRoomSpawns.length], 130)
+      )
+    );
+  }
+
+  enemies.push(
+    mk(
+      `hw-fr-in-${waveNum}`,
+      EnemyKind.FRANKEN_STITCH_JUGGERNAUT,
+      330 + waveNum * 52,
+      75 + waveNum * 16,
+      10.0,
+      { x: 2220, y: 640 }
+    )
+  );
+
   // 2. OUTDOOR CTHULHU BIO-CYBER ABYSS HORRORS & CHIMERAS (x: 2680..4680)
   const weaverMutantCount = 6 + waveNum;
   for (let i = 0; i < weaverMutantCount; i++) {
@@ -498,13 +600,60 @@ export function buildWaveEnemies(waveNum: number): { enemies: InternalEnemy[]; c
     )
   );
 
-  // 4. WILD CAPTURABLE CYBER PETS (Across Indoor & Outdoor Frontier)
+  // HALLOWEEN OUTDOOR NIGHTMARE PATROLS & 4TH WORLD BOSS (Headless Doom Rider!)
+  const outdoorHalloweenCount = 4 + waveNum;
+  for (let i = 0; i < outdoorHalloweenCount; i++) {
+    const useReaper = i % 2 === 0;
+    enemies.push(
+      mk(
+        `hw-out-${waveNum}-${i}`,
+        useReaper ? EnemyKind.PUMPKIN_SCYTHE_REAPER : EnemyKind.SPECTRAL_BANSHEE_WRAITH,
+        180 + waveNum * 30,
+        30,
+        99,
+        jitter(cthulhuAbyssSpawns[cthIdx++ % cthulhuAbyssSpawns.length], 150)
+      )
+    );
+  }
+
+  const frankenWastelandCount = 2 + Math.floor(waveNum * 0.5);
+  for (let i = 0; i < frankenWastelandCount; i++) {
+    enemies.push(
+      mk(
+        `hw-fr-out-${waveNum}-${i}`,
+        EnemyKind.FRANKEN_STITCH_JUGGERNAUT,
+        360 + waveNum * 58,
+        85 + waveNum * 18,
+        9.5,
+        jitter(mechaWastelandSpawns[mechIdx++ % mechaWastelandSpawns.length], 160)
+      )
+    );
+  }
+
+  // WORLD BOSS 4: Headless Doom Rider (Haunted Nexus Boss right beyond Quarantine Gate!)
+  enemies.push(
+    mk(
+      `boss-headless-${waveNum}`,
+      EnemyKind.BOSS_HEADLESS_DOOM_RIDER,
+      640 + waveNum * 110,
+      125 + waveNum * 24,
+      8.5,
+      { x: 3040, y: 2040 }
+    )
+  );
+
+  // 4. WILD CAPTURABLE CYBER & HALLOWEEN PETS (Across Indoor & Outdoor Frontier)
   enemies.push(mk(`wild-dog-${waveNum}-0`, EnemyKind.WILD_SCOUT_DOG, 90 + waveNum * 12, 0, 99, { x: 1320, y: 2040 }));
   enemies.push(mk(`wild-dog-${waveNum}-1`, EnemyKind.WILD_SCOUT_DOG, 90 + waveNum * 12, 0, 99, { x: 2940, y: 1520 }));
-  enemies.push(mk(`wild-dog-${waveNum}-2`, EnemyKind.WILD_SCOUT_DOG, 90 + waveNum * 12, 0, 99, { x: 5120, y: 1940 }));
   enemies.push(mk(`wild-cat-${waveNum}-0`, EnemyKind.WILD_CYBER_CAT, 84 + waveNum * 12, 0, 99, { x: 2220, y: 2020 }));
   enemies.push(mk(`wild-cat-${waveNum}-1`, EnemyKind.WILD_CYBER_CAT, 84 + waveNum * 12, 0, 99, { x: 3020, y: 2940 }));
-  enemies.push(mk(`wild-cat-${waveNum}-2`, EnemyKind.WILD_CYBER_CAT, 84 + waveNum * 12, 0, 99, { x: 5240, y: 3120 }));
+  // Wild Halloween Pets: Pumpkin Spirit Hound & Cyber Night Bat!
+  enemies.push(mk(`wild-pump-${waveNum}-0`, EnemyKind.WILD_PUMPKIN_SPIRIT, 92 + waveNum * 12, 0, 99, { x: 2060, y: 1620 }));
+  enemies.push(mk(`wild-pump-${waveNum}-1`, EnemyKind.WILD_PUMPKIN_SPIRIT, 92 + waveNum * 12, 0, 99, { x: 3320, y: 1860 }));
+  enemies.push(mk(`wild-pump-${waveNum}-2`, EnemyKind.WILD_PUMPKIN_SPIRIT, 92 + waveNum * 12, 0, 99, { x: 5180, y: 2180 }));
+  enemies.push(mk(`wild-bat-${waveNum}-0`, EnemyKind.WILD_NIGHT_BAT, 86 + waveNum * 12, 0, 99, { x: 1480, y: 1460 }));
+  enemies.push(mk(`wild-bat-${waveNum}-1`, EnemyKind.WILD_NIGHT_BAT, 86 + waveNum * 12, 0, 99, { x: 3580, y: 2560 }));
+  enemies.push(mk(`wild-bat-${waveNum}-2`, EnemyKind.WILD_NIGHT_BAT, 86 + waveNum * 12, 0, 99, { x: 5420, y: 3180 }));
 
   const chests: FieldChest[] = [
     { id: `ch-${waveNum}-1`, x: 760, y: 360, opened: false, hackProgress: 0 },
@@ -520,7 +669,44 @@ export function buildWaveEnemies(waveNum: number): { enemies: InternalEnemy[]; c
     { id: `ch-${waveNum}-11`, x: 5560, y: 3180, opened: false, hackProgress: 0 },
     { id: `ch-${waveNum}-12`, x: 6680, y: 4060, opened: false, hackProgress: 0 },
   ];
-  return { enemies, chests };
+
+  // 22 Interactive "TRICK OR TREAT!" Cyber Jack-o'-Lantern Easter Egg Props!
+  const pumpkinCoords: { x: number; y: number; v: HalloweenPumpkinProp['variant'] }[] = [
+    { x: 1620, y: 1840, v: 'witch_pumpkin' },
+    { x: 1940, y: 1840, v: 'jack' },
+    { x: 1780, y: 1520, v: 'skull_lantern' },
+    { x: 1780, y: 2180, v: 'witch_pumpkin' },
+    { x: 620, y: 540, v: 'jack' },
+    { x: 1320, y: 820, v: 'witch_pumpkin' },
+    { x: 2120, y: 520, v: 'skull_lantern' },
+    { x: 2460, y: 880, v: 'jack' },
+    { x: 440, y: 1540, v: 'witch_pumpkin' },
+    { x: 720, y: 2280, v: 'jack' },
+    { x: 880, y: 2980, v: 'skull_lantern' },
+    { x: 1920, y: 2980, v: 'witch_pumpkin' },
+    { x: 960, y: 3880, v: 'jack' },
+    { x: 1980, y: 4160, v: 'witch_pumpkin' },
+    { x: 2860, y: 1760, v: 'witch_pumpkin' },
+    { x: 3260, y: 1120, v: 'skull_lantern' },
+    { x: 3820, y: 1620, v: 'jack' },
+    { x: 3560, y: 2980, v: 'witch_pumpkin' },
+    { x: 4280, y: 3360, v: 'skull_lantern' },
+    { x: 5120, y: 1680, v: 'witch_pumpkin' },
+    { x: 5840, y: 2680, v: 'jack' },
+    { x: 6460, y: 2240, v: 'skull_lantern' },
+  ];
+  const halloweenProps: HalloweenPumpkinProp[] = pumpkinCoords.map((pt, idx) => ({
+    id: `pump-prop-${waveNum}-${idx}`,
+    x: pt.x,
+    y: pt.y,
+    hp: 36,
+    maxHp: 36,
+    smashed: false,
+    variant: pt.v,
+    hitFlash: 0,
+  }));
+
+  return { enemies, chests, halloweenProps };
 }
 
 export function renderWorld25D(
@@ -532,8 +718,11 @@ export function renderWorld25D(
   selectedSkin: PlayerSkinId,
   _activeComp: CompanionInstance | undefined,
   ownedCompanions: CompanionInstance[],
-  lockedEnemyId: string | undefined
+  lockedEnemyId: string | undefined,
+  wearWitchHat = false,
+  equippedArmor: ArmorId = ArmorId.EVA_STANDARD_SUIT
 ) {
+  const armorVisual = computeArmorStats(equippedArmor, 1, MAX_PLAYER_HP);
   let camX = Math.max(0, Math.min(WORLD_W - viewW, s.px - viewW / 2));
   let camY = Math.max(0, Math.min(WORLD_H - viewH, s.py - viewH / 2));
   if (s.shakeTimer > 0) {
@@ -543,8 +732,12 @@ export function renderWorld25D(
 
   const dogComp = ownedCompanions.find((c) => c.kind === CompanionKind.SCOUT_DOG);
   const catComp = ownedCompanions.find((c) => c.kind === CompanionKind.CYBER_CAT);
+  const pumpkinComp = ownedCompanions.find((c) => c.kind === CompanionKind.PUMPKIN_SPIRIT);
+  const batComp = ownedCompanions.find((c) => c.kind === CompanionKind.NIGHT_BAT);
   const ownsDog = Boolean(dogComp);
   const ownsCat = Boolean(catComp);
+  const ownsPumpkin = Boolean(pumpkinComp);
+  const ownsBat = Boolean(batComp);
 
   drawIsometricArenaFloor(ctx, camX, camY, viewW, viewH, WORLD_W, WORLD_H, timeSec);
   ctx.save();
@@ -585,6 +778,7 @@ export function renderWorld25D(
 
   type Item =
     | { sortY: number; type: 'obs'; obs: ObstacleBlock }
+    | { sortY: number; type: 'pumpkinProp'; prop: HalloweenPumpkinProp }
     | { sortY: number; type: 'enemy'; enemy: InternalEnemy }
     | { sortY: number; type: 'player' }
     | { sortY: number; type: 'comp'; kind: CompanionKind; x: number; y: number; facingRight: boolean };
@@ -597,8 +791,18 @@ export function renderWorld25D(
       en.y < camY + viewH + 220
   );
 
+  const visiblePumpkins = s.halloweenProps.filter(
+    (hp) =>
+      !hp.smashed &&
+      hp.x > camX - 90 &&
+      hp.x < camX + viewW + 90 &&
+      hp.y > camY - 90 &&
+      hp.y < camY + viewH + 90
+  );
+
   const list: Item[] = [
     ...ARENA_OBSTACLES.map((obs) => ({ sortY: obs.y + obs.h * 0.85, type: 'obs' as const, obs })),
+    ...visiblePumpkins.map((prop) => ({ sortY: prop.y, type: 'pumpkinProp' as const, prop })),
     ...visibleEnemies.map((enemy) => ({ sortY: enemy.y, type: 'enemy' as const, enemy })),
     { sortY: s.py, type: 'player' as const },
   ];
@@ -622,6 +826,26 @@ export function renderWorld25D(
       facingRight: s.catFacingRight,
     });
   }
+  if (pumpkinComp) {
+    list.push({
+      sortY: s.pumpkinPetY,
+      type: 'comp',
+      kind: CompanionKind.PUMPKIN_SPIRIT,
+      x: s.pumpkinPetX,
+      y: s.pumpkinPetY,
+      facingRight: s.pumpkinPetFacingRight,
+    });
+  }
+  if (batComp) {
+    list.push({
+      sortY: s.batPetY,
+      type: 'comp',
+      kind: CompanionKind.NIGHT_BAT,
+      x: s.batPetX,
+      y: s.batPetY,
+      facingRight: s.batPetFacingRight,
+    });
+  }
   list.sort((a, b) => a.sortY - b.sortY);
 
   for (const item of list) {
@@ -634,10 +858,14 @@ export function renderWorld25D(
       ) {
         drawObstacle25D(ctx, item.obs, timeSec);
       }
+    } else if (item.type === 'pumpkinProp') {
+      drawHalloweenPumpkinProp25D(ctx, item.prop, timeSec);
     } else if (item.type === 'enemy') {
       const speciesOwned =
         (item.enemy.kind === EnemyKind.WILD_SCOUT_DOG && ownsDog) ||
-        (item.enemy.kind === EnemyKind.WILD_CYBER_CAT && ownsCat);
+        (item.enemy.kind === EnemyKind.WILD_CYBER_CAT && ownsCat) ||
+        (item.enemy.kind === EnemyKind.WILD_PUMPKIN_SPIRIT && ownsPumpkin) ||
+        (item.enemy.kind === EnemyKind.WILD_NIGHT_BAT && ownsBat);
       drawEnemySprite25D(ctx, item.enemy, timeSec, lockedEnemyId === item.enemy.id, speciesOwned);
     } else if (item.type === 'comp') {
       drawCompanionSprite25D(ctx, item.x, item.y, item.kind, item.facingRight, timeSec);
@@ -656,7 +884,11 @@ export function renderWorld25D(
         s.swingTimer,
         s.recoilTimer,
         s.invulnTimer,
-        timeSec
+        timeSec,
+        wearWitchHat,
+        s.bloodMoonTimer > 0,
+        armorVisual.ringColor,
+        s.maxShield > 0 ? s.shield / s.maxShield : 0
       );
     }
   }
@@ -780,6 +1012,54 @@ export function renderWorld25D(
       ctx.fill();
       ctx.stroke();
       ctx.restore();
+    } else if (p.kind === 'jack_bomb') {
+      // Spinning Blazing Carved Jack-o'-Lantern Bomb!
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(timeSec * 11);
+      ctx.fillStyle = 'rgba(249, 115, 22, 0.4)';
+      ctx.beginPath();
+      ctx.arc(0, 0, 15, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = p.fromPlayer ? '#0ea5e9' : '#ea580c';
+      ctx.strokeStyle = '#090a0f';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.arc(0, 0, 9.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#fef08a';
+      ctx.fillRect(-4.5, -3.5, 3, 3);
+      ctx.fillRect(1.5, -3.5, 3, 3);
+      ctx.fillRect(-4, 2, 8, 2.5);
+      ctx.restore();
+    } else if (p.kind === 'spectral_skull') {
+      // Screaming Ectoplasm Skull Bolt!
+      const ang = Math.atan2(p.vy, p.vx);
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(ang);
+      ctx.fillStyle = 'rgba(168, 85, 247, 0.36)';
+      ctx.beginPath();
+      ctx.ellipse(-3, 0, 15, 9, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#e0f2fe';
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.arc(2, 0, 7.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#090514';
+      ctx.beginPath();
+      ctx.arc(4, -2.5, 2, 0, Math.PI * 2);
+      ctx.arc(4, 2.5, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     } else if (p.kind === 'enemy_bullet') {
       const ang = Math.atan2(p.vy, p.vx);
       ctx.save();
@@ -795,6 +1075,51 @@ export function renderWorld25D(
       ctx.fill();
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(-3, -1, 7, 2);
+      ctx.restore();
+    } else if (p.kind === 'plasma_pellet') {
+      const ang = Math.atan2(p.vy, p.vx);
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(ang);
+      ctx.fillStyle = 'rgba(0, 229, 255, 0.36)';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 12, 5.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#10b981';
+      ctx.beginPath();
+      ctx.roundRect(-8, -3, 16, 6, 3);
+      ctx.fill();
+      ctx.fillStyle = '#e0f2fe';
+      ctx.fillRect(-3, -1.2, 9, 2.4);
+      ctx.restore();
+    } else if (p.kind === 'singularity_orb') {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(timeSec * 9);
+      const g = ctx.createRadialGradient(0, 0, 2, 0, 0, 24);
+      g.addColorStop(0, '#05020a');
+      g.addColorStop(0.45, '#7e22ce');
+      g.addColorStop(0.75, 'rgba(0, 229, 255, 0.55)');
+      g.addColorStop(1, 'rgba(0, 229, 255, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(0, 0, 24, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = '#00e5ff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 16, 6, 0.4, 0, Math.PI * 2);
+      ctx.ellipse(0, 0, 16, 6, -0.6, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = '#05020a';
+      ctx.strokeStyle = '#e879f9';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 8.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
       ctx.restore();
     } else {
       ctx.fillStyle = 'rgba(255, 23, 68, 0.32)';
@@ -816,6 +1141,10 @@ export function renderWorld25D(
     ctx.fillStyle = pt.color;
     ctx.fillRect(pt.x - pt.size / 2, pt.y - pt.size / 2, pt.size, pt.size);
   }
+  ctx.globalAlpha = 1;
+
+  // Flapping Cyber-Bat Swarms & Ghostly Wisps
+  drawBatParticles25D(ctx, s.batParticles, timeSec);
   ctx.restore();
 
   ctx.font = '800 11.5px "JetBrains Mono", monospace';
@@ -830,13 +1159,14 @@ export function renderWorld25D(
   }
   ctx.restore();
 
-  // Dynamic Biome Vignette (Indoor Neon Steel vs Cthulhu Bio-Abyss vs Open-World Mecha Furnace)
+  // Dynamic Biome + Halloween Blood-Moon Vignette
   const inMecha = s.px >= MECHA_WASTELAND_DIVIDE_X;
   const inOutdoor = s.px >= OUTDOOR_DIVIDE_X;
+  const bloodMoon = s.bloodMoonTimer > 0;
   const edgeGlow = ctx.createRadialGradient(
     viewW / 2,
     viewH / 2,
-    Math.max(viewW, viewH) * (inOutdoor ? 0.38 : 0.46),
+    Math.max(viewW, viewH) * (bloodMoon ? 0.34 : inOutdoor ? 0.38 : 0.46),
     viewW / 2,
     viewH / 2,
     Math.max(viewW, viewH) * 0.86
@@ -844,11 +1174,13 @@ export function renderWorld25D(
   edgeGlow.addColorStop(0, 'rgba(0, 0, 0, 0)');
   edgeGlow.addColorStop(
     1,
-    inMecha
+    bloodMoon
+      ? 'rgba(180, 42, 18, 0.46)'
+      : inMecha
       ? 'rgba(124, 45, 18, 0.42)'
       : inOutdoor
       ? 'rgba(74, 4, 78, 0.46)'
-      : 'rgba(8, 15, 28, 0.3)'
+      : 'rgba(28, 12, 36, 0.32)'
   );
   ctx.fillStyle = edgeGlow;
   ctx.fillRect(0, 0, viewW, viewH);

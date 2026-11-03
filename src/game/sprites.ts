@@ -14,6 +14,14 @@ import {
   isEldritchEnemyKind,
 } from './eldritchSprites';
 import {
+  drawFestiveHalloweenCrown25D,
+  drawHalloweenEnemy25D,
+  drawHalloweenPet25D,
+  getHalloweenCombatAnchors,
+  isHalloweenEnemyKind,
+  isWildPetEnemyKind,
+} from './halloweenSprites';
+import {
   drawMechChimeraEnemy25D,
   getMechChimeraCombatAnchors,
   isEliteEnemyKind,
@@ -138,6 +146,23 @@ export function getPlayerWeaponMuzzleWorld(
 ): { x: number; y: number } {
   const dir = facingRight ? 1 : -1;
 
+  const barrelByWeapon = (w: WeaponId, doge: boolean) => {
+    switch (w) {
+      case WeaponId.GAUSS_RAILGUN:
+        return doge ? 44 : 46;
+      case WeaponId.SINGULARITY_LAUNCHER:
+        return doge ? 38 : 40;
+      case WeaponId.DISRUPTOR_CANNON:
+        return doge ? 36 : 38;
+      case WeaponId.TESLA_ARC_EMITTER:
+        return doge ? 35 : 37;
+      case WeaponId.PLASMA_SCATTERGUN:
+        return doge ? 32 : 34;
+      default:
+        return doge ? 34 : 36;
+    }
+  };
+
   if (skin === PlayerSkinId.DEGEN_ASTRO) {
     const pose = getSpaceDogeActionPose(facingRight, isMoving, walkPhase);
     const rect = computeCalibratedSpriteRect(pose.sprite, HUMANOID_VISUAL_HEIGHT);
@@ -149,7 +174,7 @@ export function getPlayerWeaponMuzzleWorld(
     }
     const gripX = px + rect.x0 + pose.gripUV.u * rect.drawW;
     const gripY = py + rect.y0 + pose.gripUV.v * rect.drawH;
-    const barrelLen = weapon === WeaponId.DISRUPTOR_CANNON ? 36 : 34;
+    const barrelLen = barrelByWeapon(weapon, true);
     return {
       x: gripX + Math.cos(aimAngle) * barrelLen,
       y: gripY + Math.sin(aimAngle) * barrelLen,
@@ -159,7 +184,7 @@ export function getPlayerWeaponMuzzleWorld(
   // Viber Operative Skins: True hand height is y = -12 (v ≈ 0.79, right at their voxel gloves!)
   const handX = px + dir * 12;
   const handY = py - 12;
-  const barrelLen = weapon === WeaponId.DISRUPTOR_CANNON ? 38 : 36;
+  const barrelLen = barrelByWeapon(weapon, false);
   return {
     x: handX + Math.cos(aimAngle) * barrelLen,
     y: handY + Math.sin(aimAngle) * barrelLen,
@@ -178,6 +203,9 @@ export function getEnemyCombatAnchorsWorld(e: RenderEnemyData): {
   rocketMuzzle: { x: number; y: number };
   rocketBackblast: { x: number; y: number };
 } {
+  if (isHalloweenEnemyKind(e.kind)) {
+    return getHalloweenCombatAnchors(e.x, e.y, e.kind, e.facingAngle);
+  }
   if (isEldritchEnemyKind(e.kind)) {
     return getEldritchCombatAnchors(e.x, e.y, e.kind, e.facingAngle);
   }
@@ -238,7 +266,7 @@ export function getEnemyCombatAnchorsWorld(e: RenderEnemyData): {
 
 export function drawLootDrop25D(
   ctx: CanvasRenderingContext2D,
-  drop: { x: number; y: number; kind: 'oCore' | 'aCore' | 'ru9' | 'ammo' },
+  drop: { x: number; y: number; kind: 'oCore' | 'aCore' | 'ru9' | 'ammo' | 'candy' },
   timeSec: number
 ) {
   const bob = Math.sin(timeSec * 5 + drop.x * 0.05) * 3;
@@ -292,6 +320,72 @@ export function drawLootDrop25D(
     ctx.font = '800 11.5px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
     ctx.fillText('A\\', 0, 4);
+  } else if (drop.kind === 'candy') {
+    // Festive Glowing Halloween Soul-Candy (Wrapped Orange-Violet Cyber Candy!)
+    ctx.fillStyle = 'rgba(249, 115, 22, 0.36)';
+    ctx.beginPath();
+    ctx.arc(0, 0, 16, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.save();
+    ctx.rotate(-0.35);
+    // Candy wrapper tails
+    ctx.fillStyle = '#a855f7';
+    ctx.strokeStyle = '#090a0f';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-8, 0);
+    ctx.lineTo(-14, -6);
+    ctx.lineTo(-14, 6);
+    ctx.closePath();
+    ctx.moveTo(8, 0);
+    ctx.lineTo(14, -6);
+    ctx.lineTo(14, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Striped Pumpkin-Candy center
+    ctx.fillStyle = '#f97316';
+    ctx.strokeStyle = '#fde047';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 8.5, 6.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.strokeStyle = '#fef08a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-3, -5);
+    ctx.lineTo(3, 5);
+    ctx.stroke();
+    ctx.restore();
+  } else if (drop.kind === 'ru9') {
+    // Gleaming 3D Hexagonal $RU9 Armory Token Coin
+    ctx.fillStyle = 'rgba(251, 191, 36, 0.34)';
+    ctx.beginPath();
+    ctx.arc(0, 0, 15, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#78350f';
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = (i * Math.PI) / 3 - Math.PI / 6;
+      const hx = Math.cos(a) * 11;
+      const hy = Math.sin(a) * 11;
+      if (i === 0) ctx.moveTo(hx, hy);
+      else ctx.lineTo(hx, hy);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#fef08a';
+    ctx.font = '800 7.5px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('RU9', 0, 2.8);
   } else {
     ctx.fillStyle = '#0284c7';
     ctx.strokeStyle = '#7dd3fc';
@@ -317,23 +411,32 @@ export function drawFieldChest(
   ctx.ellipse(0, 10, 22, 10, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = opened ? '#334155' : '#1e293b';
-  ctx.strokeStyle = opened ? '#64748b' : '#00e5ff';
+  ctx.fillStyle = opened ? '#334155' : '#24142e';
+  ctx.strokeStyle = opened ? '#64748b' : '#f97316';
   ctx.lineWidth = 2.2;
   ctx.fillRect(-18, -15, 36, 24);
   ctx.strokeRect(-18, -15, 36, 24);
-  ctx.fillStyle = opened ? '#475569' : '#334155';
+  ctx.fillStyle = opened ? '#475569' : '#3b1548';
   ctx.fillRect(-18, -21, 36, 8);
   ctx.strokeRect(-18, -21, 36, 8);
 
   if (!opened) {
-    const glow = 0.65 + 0.35 * Math.sin(timeSec * 6);
-    ctx.fillStyle = `rgba(0, 229, 255, ${glow})`;
-    ctx.fillRect(-6, -9, 12, 6);
+    const glow = 0.7 + 0.3 * Math.sin(timeSec * 6);
+    // Haunted Pumpkin Supply Crate Faceplate
+    ctx.fillStyle = `rgba(253, 224, 71, ${glow.toFixed(2)})`;
+    ctx.beginPath();
+    ctx.moveTo(-9, -8);
+    ctx.lineTo(-6, -12);
+    ctx.lineTo(-3, -8);
+    ctx.moveTo(3, -8);
+    ctx.lineTo(6, -12);
+    ctx.lineTo(9, -8);
+    ctx.fill();
+    ctx.fillRect(-8, -3, 16, 3);
     if (hackProgress > 0) {
       ctx.fillStyle = '#090d16';
       ctx.fillRect(-18, -30, 36, 5);
-      ctx.fillStyle = '#00e5ff';
+      ctx.fillStyle = '#f97316';
       ctx.fillRect(-17, -29, 34 * Math.min(1, hackProgress), 3);
     }
   }
@@ -477,6 +580,55 @@ function drawBlueOptic(
   ctx.restore();
 }
 
+function drawPetIsoBlock(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  dx: number,
+  dy: number,
+  front: string,
+  top: string,
+  side: string,
+  border = '#090d16'
+) {
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 1.8;
+  ctx.strokeStyle = border;
+
+  ctx.fillStyle = top;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + dx, y - dy);
+  ctx.lineTo(x + w + dx, y - dy);
+  ctx.lineTo(x + w, y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = side;
+  ctx.beginPath();
+  if (dx >= 0) {
+    ctx.moveTo(x + w, y);
+    ctx.lineTo(x + w + dx, y - dy);
+    ctx.lineTo(x + w + dx, y + h - dy);
+    ctx.lineTo(x + w, y + h);
+  } else {
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + dx, y - dy);
+    ctx.lineTo(x + dx, y + h - dy);
+    ctx.lineTo(x, y + h);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = front;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeRect(x, y, w, h);
+}
+
 function drawQuadrupedRoboDog25D(
   ctx: CanvasRenderingContext2D,
   redEyes: boolean,
@@ -484,61 +636,112 @@ function drawQuadrupedRoboDog25D(
   timeSec: number
 ) {
   const stride = Math.sin(timeSec * 12) * 3;
-  ctx.strokeStyle = '#090a0f';
-  ctx.lineWidth = 2.2;
+  const accent = redEyes ? '#ff1744' : '#00e5ff';
 
-  ctx.fillStyle = hitFlash ? '#ffffff' : '#1e293b';
-  ctx.fillRect(-15, -4 + stride, 6, 12);
-  ctx.strokeRect(-15, -4 + stride, 6, 12);
-  ctx.fillRect(-6, -3 - stride, 6, 12);
-  ctx.strokeRect(-6, -3 - stride, 6, 12);
-  ctx.fillRect(5, -4 - stride, 6, 12);
-  ctx.strokeRect(5, -4 - stride, 6, 12);
-  ctx.fillRect(13, -3 + stride, 6, 12);
-  ctx.strokeRect(13, -3 + stride, 6, 12);
+  // Far-side articulated servo legs
+  for (const lx of [-13, 7]) {
+    const off = lx < 0 ? -stride : stride;
+    drawPetIsoBlock(
+      ctx,
+      lx,
+      -5 + off,
+      6.5,
+      12,
+      2,
+      2,
+      hitFlash ? '#ffffff' : '#1e293b',
+      '#475569',
+      '#0f172a'
+    );
+  }
 
-  ctx.fillStyle = hitFlash ? '#ffffff' : redEyes ? '#475569' : '#334155';
-  ctx.fillRect(-16, -18, 34, 15);
-  ctx.strokeRect(-16, -18, 34, 15);
-  ctx.fillStyle = redEyes ? '#ff1744' : '#00b4ff';
-  ctx.fillRect(-4, -14, 14, 4);
+  // 3D Isometric Boston-Dynamics-style Tactical Hound Chassis + Dorsal Power Pack
+  drawPetIsoBlock(
+    ctx,
+    -17,
+    -20,
+    35,
+    15,
+    4,
+    4.5,
+    hitFlash ? '#ffffff' : redEyes ? '#334155' : '#1e293b',
+    hitFlash ? '#ffffff' : redEyes ? '#64748b' : '#475569',
+    '#0f172a'
+  );
+  // Dorsal radar pack & glowing core bar
+  drawPetIsoBlock(ctx, -6, -24, 18, 4.5, 3, 2.5, '#334155', '#94a3b8', '#1e293b');
+  ctx.fillStyle = accent;
+  ctx.fillRect(-10, -14, 20, 3.5);
 
-  ctx.strokeStyle = redEyes ? '#ff1744' : '#00b4ff';
-  ctx.lineWidth = 2.5;
+  // Near-side articulated servo legs with glowing ankle actuators
+  for (const lx of [-6, 13]) {
+    const off = lx < 0 ? stride : -stride;
+    drawPetIsoBlock(
+      ctx,
+      lx,
+      -4 + off,
+      7,
+      12.5,
+      2.5,
+      2,
+      hitFlash ? '#ffffff' : '#334155',
+      '#64748b',
+      '#0f172a'
+    );
+    ctx.fillStyle = accent;
+    ctx.fillRect(lx + 1, 5 + off, 5, 2.2);
+  }
+
+  // Segmented Cyber Tail Antenna with Telemetry Beacon
+  const tailY = -27 + Math.sin(timeSec * 14) * 3;
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 2.6;
   ctx.beginPath();
-  ctx.moveTo(18, -15);
-  ctx.lineTo(25, -25 + Math.sin(timeSec * 14) * 3);
+  ctx.moveTo(18, -17);
+  ctx.lineTo(25, tailY);
   ctx.stroke();
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.arc(25, tailY, 2.8, 0, Math.PI * 2);
+  ctx.fill();
 
-  ctx.strokeStyle = '#090a0f';
-  ctx.lineWidth = 2.2;
-  ctx.fillStyle = hitFlash ? '#ffffff' : '#64748b';
-  ctx.fillRect(-26, -31, 18, 16);
-  ctx.strokeRect(-26, -31, 18, 16);
-  ctx.fillStyle = hitFlash ? '#ffffff' : '#334155';
-  ctx.fillRect(-33, -24, 9, 9);
-  ctx.strokeRect(-33, -24, 9, 9);
+  // 3D Isometric Armored Hound Head + Snout Muzzle + Twin Sensor Ears
+  drawPetIsoBlock(
+    ctx,
+    -28,
+    -33,
+    19,
+    16,
+    3.5,
+    4,
+    hitFlash ? '#ffffff' : '#475569',
+    '#94a3b8',
+    '#1e293b'
+  );
+  drawPetIsoBlock(
+    ctx,
+    -35,
+    -26,
+    9,
+    9,
+    2.5,
+    2.5,
+    hitFlash ? '#ffffff' : '#334155',
+    '#64748b',
+    '#0f172a'
+  );
+  drawPetIsoBlock(ctx, -25, -40, 5, 7, 2, 2, accent, '#e0f2fe', '#0284c7');
+  drawPetIsoBlock(ctx, -16, -40, 5, 7, 2, 2, accent, '#e0f2fe', '#0284c7');
 
-  ctx.fillStyle = hitFlash ? '#ffffff' : redEyes ? '#1e293b' : '#0284c7';
-  ctx.fillRect(-23, -38, 5, 7);
-  ctx.strokeRect(-23, -38, 5, 7);
-  ctx.fillRect(-14, -38, 5, 7);
-  ctx.strokeRect(-14, -38, 5, 7);
-
+  // Armored HUD Visor + Glowing Optics
   ctx.fillStyle = '#090a0f';
-  ctx.fillRect(-25, -27, 13, 6);
+  ctx.fillRect(-27, -29, 14, 6);
   if (redEyes) {
-    ctx.fillStyle = '#ff1744';
-    ctx.fillRect(-24, -26, 4, 4);
-    ctx.fillRect(-17, -26, 4, 4);
-    drawCrimsonOptic(ctx, -22, -24, 2.8, false, timeSec);
-    drawCrimsonOptic(ctx, -15, -24, 2.8, false, timeSec);
+    drawCrimsonOptic(ctx, -24, -26, 2.8, false, timeSec);
+    drawCrimsonOptic(ctx, -17, -26, 2.8, false, timeSec);
   } else {
-    ctx.fillStyle = '#00b4ff';
-    ctx.fillRect(-24, -26, 4, 4);
-    ctx.fillRect(-17, -26, 4, 4);
-    drawBlueOptic(ctx, -22, -24, 2.9, timeSec);
-    drawBlueOptic(ctx, -15, -24, 2.9, timeSec);
+    drawBlueOptic(ctx, -24, -26, 2.9, timeSec);
+    drawBlueOptic(ctx, -17, -26, 2.9, timeSec);
   }
 }
 
@@ -548,70 +751,117 @@ function drawQuadrupedRoboCat25D(
   hitFlash: boolean,
   timeSec: number
 ) {
-  const stride = Math.cos(timeSec * 13) * 2.5;
-  ctx.strokeStyle = '#090a0f';
-  ctx.lineWidth = 2;
+  const stride = Math.cos(timeSec * 13) * 2.6;
+  const accent = redEyes ? '#ff1744' : '#00e5ff';
 
-  ctx.fillStyle = hitFlash ? '#ffffff' : '#1e1b4b';
-  ctx.fillRect(-12, -3 + stride, 5, 10);
-  ctx.strokeRect(-12, -3 + stride, 5, 10);
-  ctx.fillRect(-4, -2 - stride, 5, 10);
-  ctx.strokeRect(-4, -2 - stride, 5, 10);
-  ctx.fillRect(5, -3 - stride, 5, 10);
-  ctx.strokeRect(5, -3 - stride, 5, 10);
-  ctx.fillRect(12, -2 + stride, 5, 10);
-  ctx.strokeRect(12, -2 + stride, 5, 10);
+  // Far-side sleek cyber-panther legs
+  for (const lx of [-11, 6]) {
+    const off = lx < 0 ? -stride : stride;
+    drawPetIsoBlock(
+      ctx,
+      lx,
+      -4 + off,
+      5.5,
+      11,
+      2,
+      2,
+      hitFlash ? '#ffffff' : '#1e1b4b',
+      '#4338ca',
+      '#0f172a'
+    );
+  }
 
-  ctx.fillStyle = hitFlash ? '#ffffff' : '#312e81';
-  ctx.fillRect(-13, -16, 29, 13);
-  ctx.strokeRect(-13, -16, 29, 13);
-  ctx.fillStyle = redEyes ? '#ff1744' : '#00b4ff';
-  ctx.fillRect(-4, -12, 12, 3);
+  // 3D Isometric Sleek Stealth Cyber-Panther Chassis + Twin Micro-Wing Thrusters
+  drawPetIsoBlock(
+    ctx,
+    -14,
+    -18,
+    30,
+    13,
+    4,
+    4,
+    hitFlash ? '#ffffff' : '#1e1b4b',
+    hitFlash ? '#ffffff' : '#3730a3',
+    '#090d16',
+    accent
+  );
+  // Side holographic circuit stripe + dorsal laser emitter pod
+  ctx.fillStyle = accent;
+  ctx.fillRect(-8, -13, 18, 2.8);
+  drawPetIsoBlock(ctx, -3, -22, 12, 4, 2.5, 2, '#0f172a', '#38bdf8', '#1e293b', accent);
 
-  ctx.strokeStyle = redEyes ? '#ff1744' : '#00b4ff';
-  ctx.lineWidth = 2.4;
+  // Near-side articulated cyber-paws
+  for (const lx of [-4, 12]) {
+    const off = lx < 0 ? stride : -stride;
+    drawPetIsoBlock(
+      ctx,
+      lx,
+      -3 + off,
+      5.5,
+      11,
+      2,
+      2,
+      hitFlash ? '#ffffff' : '#312e81',
+      '#4f46e5',
+      '#0f172a'
+    );
+    ctx.fillStyle = accent;
+    ctx.fillRect(lx + 0.8, 5.5 + off, 4, 2);
+  }
+
+  // Segmented Whip-Blade Fiber-Optic Cyber Tail
+  const tailSway = Math.sin(timeSec * 9.5) * 4;
+  ctx.strokeStyle = '#090d16';
+  ctx.lineWidth = 4.6;
+  ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(16, -13);
-  ctx.quadraticCurveTo(26, -20, 22 + Math.sin(timeSec * 9) * 4, -30);
+  ctx.moveTo(16, -14);
+  ctx.quadraticCurveTo(27, -21, 23 + tailSway, -32);
   ctx.stroke();
-
-  ctx.strokeStyle = '#090a0f';
-  ctx.lineWidth = 2;
-  ctx.fillStyle = hitFlash ? '#ffffff' : '#3730a3';
-  ctx.fillRect(-23, -29, 17, 15);
-  ctx.strokeRect(-23, -29, 17, 15);
-
-  ctx.fillStyle = redEyes ? '#ff1744' : '#38bdf8';
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 2.2;
+  ctx.stroke();
+  ctx.fillStyle = '#e0f2fe';
   ctx.beginPath();
-  ctx.moveTo(-23, -29);
-  ctx.lineTo(-20, -38);
-  ctx.lineTo(-16, -29);
-  ctx.closePath();
+  ctx.arc(23 + tailSway, -32, 2.4, 0, Math.PI * 2);
   ctx.fill();
-  ctx.stroke();
 
-  ctx.beginPath();
-  ctx.moveTo(-14, -29);
-  ctx.lineTo(-10, -38);
-  ctx.lineTo(-6, -29);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
+  // 3D Isometric Angular Cyber-Feline Visor Helmet + Pointed Sonar Ears
+  drawPetIsoBlock(
+    ctx,
+    -25,
+    -31,
+    18,
+    15,
+    3.5,
+    4,
+    hitFlash ? '#ffffff' : '#1e1b4b',
+    '#4338ca',
+    '#090d16',
+    accent
+  );
+
+  for (const ex of [-23, -13]) {
+    ctx.fillStyle = '#0f172a';
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(ex, -31);
+    ctx.lineTo(ex + 3, -41);
+    ctx.lineTo(ex + 7, -31);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
 
   ctx.fillStyle = '#090a0f';
-  ctx.fillRect(-22, -24, 13, 5);
+  ctx.fillRect(-24, -26, 14, 5.5);
   if (redEyes) {
-    ctx.fillStyle = '#ff1744';
-    ctx.fillRect(-21, -23, 4, 3);
-    ctx.fillRect(-14, -23, 4, 3);
-    drawCrimsonOptic(ctx, -19, -21.5, 2.6, false, timeSec);
-    drawCrimsonOptic(ctx, -12, -21.5, 2.6, false, timeSec);
+    drawCrimsonOptic(ctx, -21, -23.2, 2.6, false, timeSec);
+    drawCrimsonOptic(ctx, -14, -23.2, 2.6, false, timeSec);
   } else {
-    ctx.fillStyle = '#00b4ff';
-    ctx.fillRect(-21, -23, 4, 3);
-    ctx.fillRect(-14, -23, 4, 3);
-    drawBlueOptic(ctx, -19, -21.5, 2.8, timeSec);
-    drawBlueOptic(ctx, -12, -21.5, 2.8, timeSec);
+    drawBlueOptic(ctx, -21, -23.2, 2.8, timeSec);
+    drawBlueOptic(ctx, -14, -23.2, 2.8, timeSec);
   }
 }
 
@@ -772,7 +1022,112 @@ function drawWeaponAttachment25D(
     ctx.fillStyle = '#475569';
     ctx.fillRect(36, -5, 6, 2.5);
     ctx.fillRect(36, 1, 6, 2.5);
+  } else if (weapon === WeaponId.PLASMA_SCATTERGUN) {
+    // Wide Twin-Choke Ion Breacher Scattergun
+    ctx.strokeStyle = '#090a0f';
+    ctx.lineWidth = 1.8;
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(-10, -5, 16, 10);
+    ctx.strokeRect(-10, -5, 16, 10);
+
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(4, -6, 30, 12);
+    ctx.strokeRect(4, -6, 30, 12);
+
+    // Emerald-Cyan Ion Pump & Twin Barrels
+    ctx.fillStyle = '#10b981';
+    ctx.fillRect(10, 3.5, 16, 4);
+    ctx.fillStyle = '#00e5ff';
+    ctx.fillRect(8, -3.5, 24, 2.5);
+    ctx.fillRect(8, 0.5, 24, 2.5);
+
+    // Flared Heavy Breacher Choke
+    ctx.fillStyle = '#475569';
+    ctx.fillRect(33, -7, 7, 14);
+    ctx.strokeRect(33, -7, 7, 14);
+  } else if (weapon === WeaponId.TESLA_ARC_EMITTER) {
+    // 3-Ring High-Voltage Tesla Coil Projector
+    ctx.strokeStyle = '#090a0f';
+    ctx.lineWidth = 1.8;
+    ctx.fillStyle = '#1e1b4b';
+    ctx.fillRect(-10, -5, 18, 10);
+    ctx.strokeRect(-10, -5, 18, 10);
+
+    ctx.fillStyle = '#312e81';
+    ctx.fillRect(6, -4, 28, 8);
+    ctx.strokeRect(6, -4, 28, 8);
+
+    // 3 Copper/Cyan Induction Rings
+    for (const rx of [12, 20, 28]) {
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(rx, -7.5, 3.2, 15);
+      ctx.strokeRect(rx, -7.5, 3.2, 15);
+    }
+
+    // Glowing Spherical Arc Emitter Tip
+    ctx.fillStyle = '#a855f7';
+    ctx.beginPath();
+    ctx.arc(38, 0, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e0f2fe';
+    ctx.beginPath();
+    ctx.arc(38, 0, 2.3, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (weapon === WeaponId.GAUSS_RAILGUN) {
+    // Long Split-Rail Hypervelocity Gauss Sniper
+    ctx.strokeStyle = '#090a0f';
+    ctx.lineWidth = 1.8;
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(-12, -5, 18, 10);
+    ctx.strokeRect(-12, -5, 18, 10);
+
+    // Top digital rangefinder scope
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(6, -10, 16, 4.5);
+    ctx.strokeRect(6, -10, 16, 4.5);
+    ctx.fillStyle = '#fde047';
+    ctx.fillRect(18, -9, 3, 2.5);
+
+    // Upper & Lower Magnetic Accelerator Rails with Glowing Gap!
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(5, -5.5, 45, 4);
+    ctx.strokeRect(5, -5.5, 45, 4);
+    ctx.fillRect(5, 1.5, 45, 4);
+    ctx.strokeRect(5, 1.5, 45, 4);
+
+    ctx.fillStyle = '#00e5ff';
+    ctx.fillRect(8, -1.2, 42, 2.4);
+  } else if (weapon === WeaponId.SINGULARITY_LAUNCHER) {
+    // Graviton Dark-Matter Torus Cannon
+    ctx.strokeStyle = '#090a0f';
+    ctx.lineWidth = 1.8;
+    ctx.fillStyle = '#18181b';
+    ctx.fillRect(-12, -6, 16, 12);
+    ctx.strokeRect(-12, -6, 16, 12);
+
+    ctx.fillStyle = '#2e1065';
+    ctx.fillRect(2, -7.5, 32, 15);
+    ctx.strokeRect(2, -7.5, 32, 15);
+
+    // Glowing Violet-Cyan Event Horizon Core
+    ctx.fillStyle = '#090514';
+    ctx.beginPath();
+    ctx.arc(22, 0, 5.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#c084fc';
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+
+    // Open Magnetic Containment Claws at Muzzle
+    ctx.fillStyle = '#475569';
+    ctx.fillRect(34, -8.5, 9, 3.5);
+    ctx.fillRect(34, 5, 9, 3.5);
+    ctx.fillStyle = '#00e5ff';
+    ctx.beginPath();
+    ctx.arc(39, 0, 3.4, 0, Math.PI * 2);
+    ctx.fill();
   } else {
+    // DISRUPTOR_CANNON
     ctx.strokeStyle = '#090a0f';
     ctx.lineWidth = 1.8;
     ctx.fillStyle = '#18181b';
@@ -975,10 +1330,13 @@ export function drawEnemySprite25D(
     : Math.sin(timeSec * 3.5 + x * 0.04) * -1.1;
   const isEldritch = isEldritchEnemyKind(kind);
   const isMechChimera = isMechaOrChimeraKind(kind);
+  const isHalloween = isHalloweenEnemyKind(kind);
   const isBoss = isWorldBossKind(kind);
   const isElite = isEliteEnemyKind(kind);
+  const isWildPet = isWildPetEnemyKind(kind);
   const isWildDog = kind === EnemyKind.WILD_SCOUT_DOG;
   const isWildCat = kind === EnemyKind.WILD_CYBER_CAT;
+  const isWildPumpkin = kind === EnemyKind.WILD_PUMPKIN_SPIRIT;
   const facingRight = Math.cos(facingAngle) >= 0;
 
   ctx.save();
@@ -990,10 +1348,12 @@ export function drawEnemySprite25D(
     ? 36
     : isElite
     ? 32
-    : isWildDog || isWildCat
+    : isWildPet
     ? 18
     : 24;
-  ctx.fillStyle = isEldritch
+  ctx.fillStyle = isHalloween
+    ? 'rgba(124, 45, 18, 0.52)'
+    : isEldritch
     ? 'rgba(46, 16, 101, 0.55)'
     : isBoss
     ? 'rgba(124, 45, 18, 0.55)'
@@ -1004,7 +1364,23 @@ export function drawEnemySprite25D(
 
   let topBarAnchorY = -80;
 
-  if (isMechChimera) {
+  if (isHalloween) {
+    ctx.save();
+    ctx.translate(0, bob);
+    const hPx = drawHalloweenEnemy25D(
+      ctx,
+      kind,
+      facingRight,
+      hitFlash > 0,
+      eyeChargeTimer > 0 || berserk,
+      e.meleeSwingTimer,
+      facingAngle,
+      walkPhase,
+      timeSec
+    );
+    topBarAnchorY = -hPx - 6;
+    ctx.restore();
+  } else if (isMechChimera) {
     ctx.save();
     ctx.translate(0, bob);
     const hPx = drawMechChimeraEnemy25D(
@@ -1035,17 +1411,19 @@ export function drawEnemySprite25D(
     );
     topBarAnchorY = -hPx - 4;
     ctx.restore();
-  } else if (isWildDog || isWildCat) {
+  } else if (isWildPet) {
     ctx.save();
     ctx.translate(0, bob);
     if (facingRight) ctx.scale(-1, 1);
     if (isWildDog) {
       drawQuadrupedRoboDog25D(ctx, true, hitFlash > 0, timeSec);
-    } else {
+    } else if (isWildCat) {
       drawQuadrupedRoboCat25D(ctx, true, hitFlash > 0, timeSec);
+    } else {
+      drawHalloweenPet25D(ctx, isWildPumpkin, true, hitFlash > 0, timeSec);
     }
     ctx.restore();
-    topBarAnchorY = -44;
+    topBarAnchorY = -46;
   } else {
     const targetH = getEnemyTargetHeight(kind);
     const spriteObj = requestSprite(getEnemySpriteUrl(kind));
@@ -1108,19 +1486,19 @@ export function drawEnemySprite25D(
     ctx.fillRect(-24, topBarAnchorY - 12, 48, 6);
     ctx.fillStyle = '#00e5ff';
     ctx.fillRect(-23, topBarAnchorY - 11, 46 * Math.min(1, 1 - captureTimer / 1.05), 4);
-  } else if (isWildDog || isWildCat) {
+  } else if (isWildPet) {
     const chancePct = Math.min(95, Math.round((0.5 + (1 - hp / maxHp) * 0.45) * 100));
     const label = speciesOwned ? 'TAMED' : `[G] ORB · ${chancePct}%`;
     ctx.font = '800 9.5px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
     const boxW = speciesOwned ? 56 : 94;
     ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-    ctx.fillRect(-boxW / 2, -56 + bob, boxW, 13);
-    ctx.strokeStyle = speciesOwned ? '#64748b' : '#00e5ff';
+    ctx.fillRect(-boxW / 2, -58 + bob, boxW, 13);
+    ctx.strokeStyle = speciesOwned ? '#64748b' : '#f97316';
     ctx.lineWidth = 1.2;
-    ctx.strokeRect(-boxW / 2, -56 + bob, boxW, 13);
-    ctx.fillStyle = speciesOwned ? '#cbd5e1' : '#d9ff00';
-    ctx.fillText(label, 0, -46.5 + bob);
+    ctx.strokeRect(-boxW / 2, -58 + bob, boxW, 13);
+    ctx.fillStyle = speciesOwned ? '#cbd5e1' : '#fde047';
+    ctx.fillText(label, 0, -48.5 + bob);
   } else if (isBoss || isElite) {
     const badge = isBoss ? 'BOSS' : 'ELITE';
     ctx.font = '800 9px "JetBrains Mono", monospace';
@@ -1213,7 +1591,11 @@ export function drawPlayerSprite25D(
   swingTimer: number,
   recoilTimer: number,
   invulnTimer: number,
-  timeSec: number
+  timeSec: number,
+  wearWitchHat = false,
+  bloodMoonActive = false,
+  armorRingColor = '#00e5ff',
+  shieldRatio = 0
 ) {
   ctx.save();
   ctx.translate(snap(x), snap(y));
@@ -1222,17 +1604,29 @@ export function drawPlayerSprite25D(
     ctx.globalAlpha = 0.55;
   }
 
-  // Ground shadow + Protagonist Cyber-Neon Ring
+  // Ground shadow + Protagonist Exo-Armor Holographic Ring
   ctx.fillStyle = 'rgba(9, 13, 22, 0.52)';
   ctx.beginPath();
   ctx.ellipse(0, 9, 23, 9.5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.strokeStyle = '#00e5ff';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = bloodMoonActive ? '#f97316' : armorRingColor;
+  ctx.lineWidth = bloodMoonActive ? 2.6 : 2.1;
   ctx.beginPath();
   ctx.ellipse(0, 9, 26, 11, 0, 0, Math.PI * 2);
   ctx.stroke();
+
+  if (shieldRatio > 0.05) {
+    ctx.save();
+    ctx.globalAlpha = 0.35 + shieldRatio * 0.45;
+    ctx.strokeStyle = armorRingColor;
+    ctx.lineWidth = 1.6;
+    ctx.setLineDash([8, 4]);
+    ctx.beginPath();
+    ctx.ellipse(0, 9, 32, 13.5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   const dir = facingRight ? 1 : -1;
   let displayAngle = aimAngle;
@@ -1351,6 +1745,14 @@ export function drawPlayerSprite25D(
     ctx.strokeRect(handX - 3, handY - 3, 6, 6);
   }
 
+  drawFestiveHalloweenCrown25D(
+    ctx,
+    -HUMANOID_VISUAL_HEIGHT + 4 + bodyBob,
+    wearWitchHat,
+    bloodMoonActive,
+    timeSec
+  );
+
   ctx.restore();
 }
 
@@ -1362,6 +1764,8 @@ export function drawCompanionSprite25D(
   facingRight: boolean,
   timeSec: number
 ) {
+  const isHalloweenPet =
+    kind === CompanionKind.PUMPKIN_SPIRIT || kind === CompanionKind.NIGHT_BAT;
   const bob =
     Math.abs(Math.sin(timeSec * 10 + (kind === CompanionKind.CYBER_CAT ? 1.4 : 0))) * -2.5;
 
@@ -1373,7 +1777,7 @@ export function drawCompanionSprite25D(
   ctx.ellipse(0, 9, 19, 8, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.strokeStyle = 'rgba(0, 180, 255, 0.85)';
+  ctx.strokeStyle = isHalloweenPet ? 'rgba(249, 115, 22, 0.88)' : 'rgba(0, 180, 255, 0.85)';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.ellipse(0, 9, 22, 9.5, 0, 0, Math.PI * 2);
@@ -1384,20 +1788,28 @@ export function drawCompanionSprite25D(
   if (facingRight) ctx.scale(-1, 1);
   if (kind === CompanionKind.SCOUT_DOG) {
     drawQuadrupedRoboDog25D(ctx, false, false, timeSec);
-  } else {
+  } else if (kind === CompanionKind.CYBER_CAT) {
     drawQuadrupedRoboCat25D(ctx, false, false, timeSec);
+  } else {
+    drawHalloweenPet25D(
+      ctx,
+      kind === CompanionKind.PUMPKIN_SPIRIT,
+      false,
+      false,
+      timeSec
+    );
   }
   ctx.restore();
 
   ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-  ctx.fillRect(-18, -51 + bob, 36, 12);
-  ctx.strokeStyle = '#00e5ff';
+  ctx.fillRect(-18, -53 + bob, 36, 12);
+  ctx.strokeStyle = isHalloweenPet ? '#f97316' : '#00e5ff';
   ctx.lineWidth = 1.2;
-  ctx.strokeRect(-18, -51 + bob, 36, 12);
-  ctx.fillStyle = '#38bdf8';
+  ctx.strokeRect(-18, -53 + bob, 36, 12);
+  ctx.fillStyle = isHalloweenPet ? '#fde047' : '#38bdf8';
   ctx.font = '800 8px "JetBrains Mono", monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('PET', 0, -42.5 + bob);
+  ctx.fillText('PET', 0, -44.5 + bob);
 
   ctx.restore();
 }

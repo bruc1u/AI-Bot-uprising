@@ -27,6 +27,19 @@ export enum WeaponId {
   CHAINSAW_SWORD = 'CHAINSAW_SWORD',
   PULSE_LASER = 'PULSE_LASER',
   DISRUPTOR_CANNON = 'DISRUPTOR_CANNON',
+  PLASMA_SCATTERGUN = 'PLASMA_SCATTERGUN',
+  TESLA_ARC_EMITTER = 'TESLA_ARC_EMITTER',
+  GAUSS_RAILGUN = 'GAUSS_RAILGUN',
+  SINGULARITY_LAUNCHER = 'SINGULARITY_LAUNCHER',
+}
+
+export enum ArmorId {
+  EVA_STANDARD_SUIT = 'EVA_STANDARD_SUIT',
+  TITAN_REACTIVE_RIG = 'TITAN_REACTIVE_RIG',
+  AEGIS_QUANTUM_SHELL = 'AEGIS_QUANTUM_SHELL',
+  PHANTOM_STEALTH_EXO = 'PHANTOM_STEALTH_EXO',
+  WRAITH_HALLOWEEN_PLATE = 'WRAITH_HALLOWEEN_PLATE',
+  OMEGA_SERAPH_CHASSIS = 'OMEGA_SERAPH_CHASSIS',
 }
 
 export enum PlayerSkinId {
@@ -43,6 +56,8 @@ export enum EnemyKind {
   LOGIC_WEAVER_ELITE = 'LOGIC_WEAVER_ELITE',
   WILD_SCOUT_DOG = 'WILD_SCOUT_DOG',
   WILD_CYBER_CAT = 'WILD_CYBER_CAT',
+  WILD_PUMPKIN_SPIRIT = 'WILD_PUMPKIN_SPIRIT',
+  WILD_NIGHT_BAT = 'WILD_NIGHT_BAT',
   ELDRITCH_TENTACLE_WEAVER = 'ELDRITCH_TENTACLE_WEAVER',
   SHOGGOTH_CORE_AMALGAM = 'SHOGGOTH_CORE_AMALGAM',
   CTHULHU_LEVIATHAN_PRIME = 'CTHULHU_LEVIATHAN_PRIME',
@@ -52,11 +67,17 @@ export enum EnemyKind {
   ELITE_CHIMERA_JUGGERNAUT = 'ELITE_CHIMERA_JUGGERNAUT',
   BOSS_IRON_COLOSSUS_TITAN = 'BOSS_IRON_COLOSSUS_TITAN',
   BOSS_OMEGA_CHIMERA_AMALGAM = 'BOSS_OMEGA_CHIMERA_AMALGAM',
+  PUMPKIN_SCYTHE_REAPER = 'PUMPKIN_SCYTHE_REAPER',
+  SPECTRAL_BANSHEE_WRAITH = 'SPECTRAL_BANSHEE_WRAITH',
+  FRANKEN_STITCH_JUGGERNAUT = 'FRANKEN_STITCH_JUGGERNAUT',
+  BOSS_HEADLESS_DOOM_RIDER = 'BOSS_HEADLESS_DOOM_RIDER',
 }
 
 export enum CompanionKind {
   SCOUT_DOG = 'SCOUT_DOG',
   CYBER_CAT = 'CYBER_CAT',
+  PUMPKIN_SPIRIT = 'PUMPKIN_SPIRIT',
+  NIGHT_BAT = 'NIGHT_BAT',
 }
 
 export interface CompanionInstance {
@@ -71,9 +92,10 @@ export interface CompanionInstance {
 
 export interface EquityTicker {
   symbol: 'OpenAI' | 'Anthropic';
+  tokenTicker: '$OPENAI' | '$ANTH';
   nameKey: 'oaiEquityName' | 'anthEquityName';
   coreType: 'oCore' | 'aCore';
-  priceRu9: number;
+  navUsd: number;
   coreToShareRatio: number;
   change24h: number;
   history: number[];
@@ -89,16 +111,16 @@ export interface ChainTransaction {
   platform: 'Robinhood Chain' | 'vibevibe.fun';
 }
 
-export interface WeaponLevels {
-  [WeaponId.ARC_BLADE]: number;
-  [WeaponId.CHAINSAW_SWORD]: number;
-  [WeaponId.PULSE_LASER]: number;
-  [WeaponId.DISRUPTOR_CANNON]: number;
-}
+export type WeaponLevels = Record<WeaponId, number>;
+export type ArmorLevels = Record<ArmorId, number>;
 
 export interface PlayerPortfolio {
   selectedSkin: PlayerSkinId;
   equippedWeapon: WeaponId;
+  equippedArmor: ArmorId;
+  ownedWeapons: WeaponId[];
+  ownedArmors: ArmorId[];
+  halloweenHat?: boolean;
   ru9: number;
   oCores: number;
   aCores: number;
@@ -110,6 +132,7 @@ export interface PlayerPortfolio {
   medkits: number;
   firmwarePatches: number;
   weaponLevels: WeaponLevels;
+  armorLevels: ArmorLevels;
   companions: CompanionInstance[];
   activeCompanionId: string | null;
   highestWave: number;

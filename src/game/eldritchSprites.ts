@@ -8,6 +8,55 @@ export function isEldritchEnemyKind(kind: EnemyKind): boolean {
   );
 }
 
+function drawIsoBioCyberBlock(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  dx: number,
+  dy: number,
+  front: string,
+  top: string,
+  side: string,
+  border = '#09040e'
+) {
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 1.9;
+  ctx.strokeStyle = border;
+
+  ctx.fillStyle = top;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + dx, y - dy);
+  ctx.lineTo(x + w + dx, y - dy);
+  ctx.lineTo(x + w, y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = side;
+  ctx.beginPath();
+  if (dx >= 0) {
+    ctx.moveTo(x + w, y);
+    ctx.lineTo(x + w + dx, y - dy);
+    ctx.lineTo(x + w + dx, y + h - dy);
+    ctx.lineTo(x + w, y + h);
+  } else {
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + dx, y - dy);
+    ctx.lineTo(x + dx, y + h - dy);
+    ctx.lineTo(x, y + h);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = front;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeRect(x, y, w, h);
+}
+
 function drawAbyssalSlitEye(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -24,7 +73,6 @@ function drawAbyssalSlitEye(
   const blink = charging ? 1 : Math.abs(Math.sin(timeSec * 1.9 + phase)) > 0.1 ? 1 : 0.18;
 
   ctx.save();
-  // Outer crimson-violet abyssal halo
   const halo = ctx.createRadialGradient(x, y, 0.5, x, y, rx * 2.5 * pulse);
   halo.addColorStop(0, '#ffffff');
   halo.addColorStop(0.3, '#ff1744');
@@ -35,7 +83,6 @@ function drawAbyssalSlitEye(
   ctx.arc(x, y, rx * 2.5 * pulse, 0, Math.PI * 2);
   ctx.fill();
 
-  // Crimson sclera
   ctx.fillStyle = '#ff1744';
   ctx.strokeStyle = '#09040e';
   ctx.lineWidth = 1.4;
@@ -45,7 +92,6 @@ function drawAbyssalSlitEye(
   ctx.stroke();
 
   if (blink > 0.3) {
-    // Eldritch gold iris + vertical black Cthulhu slit pupil
     ctx.fillStyle = '#fde047';
     ctx.beginPath();
     ctx.ellipse(x, y, rx * 0.48, ry * 0.78, 0, 0, Math.PI * 2);
@@ -79,11 +125,11 @@ export function getEldritchCombatAnchors(
     const rpgPivotX = x - dir * 18;
     const rpgPivotY = y - 78;
     return {
-      leftEye: { x: x - 11, y: y - 76 },
-      rightEye: { x: x + 11, y: y - 76 },
+      leftEye: { x: x - 11, y: y - 78 },
+      rightEye: { x: x + 11, y: y - 78 },
       gunMuzzle: {
-        x: gunPivotX + Math.cos(facingAngle) * 34,
-        y: gunPivotY + Math.sin(facingAngle) * 34,
+        x: gunPivotX + Math.cos(facingAngle) * 36,
+        y: gunPivotY + Math.sin(facingAngle) * 36,
       },
       rocketMuzzle: {
         x: rpgPivotX + Math.cos(facingAngle) * 28,
@@ -97,7 +143,6 @@ export function getEldritchCombatAnchors(
   }
 
   if (kind === EnemyKind.SHOGGOTH_CORE_AMALGAM) {
-    // Fires void orbs directly from its gaping biomechanical maw!
     const mawX = x + dir * 18;
     const mawY = y - 34;
     return {
@@ -115,10 +160,9 @@ export function getEldritchCombatAnchors(
     };
   }
 
-  // ELDRITCH_TENTACLE_WEAVER
   return {
-    leftEye: { x: x - 9, y: y - 54 },
-    rightEye: { x: x + 9, y: y - 54 },
+    leftEye: { x: x - 9, y: y - 56 },
+    rightEye: { x: x + 9, y: y - 56 },
     gunMuzzle: {
       x: x + Math.cos(facingAngle) * 28,
       y: y - 42 + Math.sin(facingAngle) * 28,
@@ -129,10 +173,10 @@ export function getEldritchCombatAnchors(
 }
 
 /**
- * Renders the 3 Outdoor Cthulhu-Mutated AI Horror Species in 2.5D:
- * 1. ELDRITCH_TENTACLE_WEAVER (~82px tall): 6 writhing biomechanical tentacles + ruptured AI skull + 5 crimson eyes
- * 2. SHOGGOTH_CORE_AMALGAM (~90px tall): Shifting mass of dark server plates, gnashing fangs, tendrils & 8 bubbling eyes
- * 3. CTHULHU_LEVIATHAN_PRIME (~112px tall): Winged cephalopod cyber-deity with 8 face tentacles, 3 blazing eyes & bio-cannon
+ * Renders the 3 Outdoor Bio-Cyber Mainframe Horror Species in 3D Isometric detail:
+ * 1. ELDRITCH_TENTACLE_WEAVER: Ruptured 3D Quantum Server Core + Segmented Fiber-Optic Mechanical Tentacles
+ * 2. SHOGGOTH_CORE_AMALGAM: Corrupted Server-Blade Amalgamation + Hydraulic Fang Maw + Bubbling Optic Nodes
+ * 3. CTHULHU_LEVIATHAN_PRIME: 3D Cyber-Cephalopod Dreadnought Boss with Solar-Membrane Wings & Void Cannon
  */
 export function drawEldritchEnemyBody25D(
   ctx: CanvasRenderingContext2D,
@@ -147,9 +191,9 @@ export function drawEldritchEnemyBody25D(
   const dir = facingRight ? 1 : -1;
 
   if (kind === EnemyKind.ELDRITCH_TENTACLE_WEAVER) {
-    // 6 Writhing Fiber-Optic & Flesh Tentacles supporting a cracked AI Cranial Carapace (~82px tall)
     ctx.save();
     ctx.lineCap = 'round';
+    // 6 Segmented Coaxial Fiber-Optic Mech-Tentacles with glowing nodes
     for (let i = 0; i < 6; i++) {
       const spread = (i - 2.5) * 10;
       const wave = Math.sin(timeSec * 8.5 + i * 1.35) * 9;
@@ -157,109 +201,120 @@ export function drawEldritchEnemyBody25D(
         meleeSwingTimer > 0 && ((facingRight && i >= 3) || (!facingRight && i <= 2))
           ? dir * 24 * Math.sin((1 - meleeSwingTimer / 0.28) * Math.PI)
           : 0;
+      const midX = spread + wave * 0.7;
+      const endX = spread * 1.35 + wave + lash;
 
-      ctx.strokeStyle = hitFlash ? '#ffffff' : '#2e103d';
-      ctx.lineWidth = 8.5;
+      ctx.strokeStyle = '#09040e';
+      ctx.lineWidth = 9.5;
       ctx.beginPath();
       ctx.moveTo(spread * 0.45, -36);
-      ctx.quadraticCurveTo(spread + wave * 0.7, -16, spread * 1.35 + wave + lash, 6);
+      ctx.quadraticCurveTo(midX, -15, endX, 6);
       ctx.stroke();
 
-      ctx.strokeStyle = i % 2 === 0 ? '#ff1744' : '#c026d3';
-      ctx.lineWidth = 2.2;
+      ctx.strokeStyle = hitFlash ? '#ffffff' : '#311042';
+      ctx.lineWidth = 6;
       ctx.stroke();
+
+      ctx.strokeStyle = i % 2 === 0 ? '#ff1744' : '#38bdf8';
+      ctx.lineWidth = 1.8;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
     }
 
-    // Cracked Gunmetal-Chitin AI Skull Carapace (from y = -76 down to -32)
-    ctx.fillStyle = hitFlash ? '#ffffff' : '#1f1630';
-    ctx.strokeStyle = '#09040e';
-    ctx.lineWidth = 2.4;
-    ctx.beginPath();
-    ctx.moveTo(-24, -40);
-    ctx.quadraticCurveTo(-28, -74, 0, -78);
-    ctx.quadraticCurveTo(28, -74, 24, -40);
-    ctx.lineTo(16, -30);
-    ctx.lineTo(-16, -30);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+    // 3D Isometric Ruptured AI Server Cranial Cube + Exposed Circuitry
+    drawIsoBioCyberBlock(
+      ctx,
+      -23,
+      -76,
+      46,
+      42,
+      -dir * 5,
+      6,
+      hitFlash ? '#ffffff' : '#1e1b4b',
+      hitFlash ? '#ffffff' : '#312e81',
+      '#0f172a',
+      '#a855f7'
+    );
 
-    // Corrupted circuit ribs
-    ctx.strokeStyle = '#a855f7';
-    ctx.lineWidth = 1.6;
-    ctx.beginPath();
-    ctx.moveTo(-16, -64);
-    ctx.lineTo(-8, -46);
-    ctx.moveTo(16, -64);
-    ctx.lineTo(8, -46);
-    ctx.stroke();
+    // Server rack LED strips on carapace
+    ctx.fillStyle = '#090d16';
+    ctx.fillRect(-19, -71, 38, 8);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillRect(-16, -69, 10, 3);
+    ctx.fillStyle = '#f43f5e';
+    ctx.fillRect(6, -69, 10, 3);
 
-    // 5 Asymmetric Abyssal Crimson Slit Eyes
-    drawAbyssalSlitEye(ctx, 0, -64, 6.2, 4.2, chargingEyes, timeSec, 0);
-    drawAbyssalSlitEye(ctx, -10, -53, 5.2, 3.8, chargingEyes, timeSec, 1.1);
-    drawAbyssalSlitEye(ctx, 10, -53, 5.2, 3.8, chargingEyes, timeSec, 1.8);
-    drawAbyssalSlitEye(ctx, -17, -44, 3.5, 2.6, chargingEyes, timeSec, 2.5);
-    drawAbyssalSlitEye(ctx, 17, -44, 3.5, 2.6, chargingEyes, timeSec, 3.2);
+    // 5 Asymmetric Abyssal Targeting Optics
+    drawAbyssalSlitEye(ctx, 0, -58, 6.2, 4.2, chargingEyes, timeSec, 0);
+    drawAbyssalSlitEye(ctx, -11, -47, 5.0, 3.6, chargingEyes, timeSec, 1.1);
+    drawAbyssalSlitEye(ctx, 11, -47, 5.0, 3.6, chargingEyes, timeSec, 1.8);
+    drawAbyssalSlitEye(ctx, -16, -39, 3.4, 2.5, chargingEyes, timeSec, 2.5);
+    drawAbyssalSlitEye(ctx, 16, -39, 3.4, 2.5, chargingEyes, timeSec, 3.2);
     ctx.restore();
-    return 84;
+    return 86;
   }
 
   if (kind === EnemyKind.SHOGGOTH_CORE_AMALGAM) {
-    // Hulking Shifting Bio-Server Shoggoth (~90px tall) with Server Shards, Fang Maw & 7 Bubbling Eyes
     ctx.save();
-    const throb = Math.sin(timeSec * 6.2) * 3;
+    const throb = Math.sin(timeSec * 6.2) * 2.5;
 
-    // Base coiling dark sludge & cable tendrils
+    // Coiling heavy power-cable tendrils at base
     ctx.lineCap = 'round';
     for (let t = -3; t <= 3; t++) {
       const tx = t * 11;
       const wig = Math.cos(timeSec * 7 + t) * 7;
-      ctx.strokeStyle = hitFlash ? '#ffffff' : '#240b30';
-      ctx.lineWidth = 10;
+      ctx.strokeStyle = hitFlash ? '#ffffff' : '#1f1230';
+      ctx.lineWidth = 9.5;
       ctx.beginPath();
       ctx.moveTo(tx * 0.6, -18);
       ctx.quadraticCurveTo(tx + wig, -4, tx * 1.2 - wig * 0.5, 7);
       ctx.stroke();
+      ctx.strokeStyle = t % 2 === 0 ? '#c026d3' : '#38bdf8';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
     }
 
-    // Main Amorphous Flesh-Metal Bulk (y = -84 .. -6)
-    ctx.fillStyle = hitFlash ? '#ffffff' : '#31103f';
-    ctx.strokeStyle = '#09040e';
-    ctx.lineWidth = 2.6;
+    // Core Bio-Cyber Biomass Volume
+    const massGrad = ctx.createRadialGradient(-8, -52, 6, 0, -44, 42);
+    massGrad.addColorStop(0, hitFlash ? '#ffffff' : '#581c87');
+    massGrad.addColorStop(0.6, hitFlash ? '#ffffff' : '#2e1065');
+    massGrad.addColorStop(1, '#09040e');
+    ctx.fillStyle = massGrad;
+    ctx.strokeStyle = '#a855f7';
+    ctx.lineWidth = 2.2;
     ctx.beginPath();
-    ctx.ellipse(0, -44, 34 + throb, 38 - throb * 0.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, -44, 34 + throb, 37 - throb * 0.5, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    // Embedded shattered server-rack armor plates sticking out of the Shoggoth
-    ctx.fillStyle = '#1e293b';
-    ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 1.6;
+    // 3D Isometric Shattered Data-Center Server Blades Jutting Out of Shoggoth!
     ctx.save();
     ctx.translate(-22, -68);
-    ctx.rotate(-0.35);
-    ctx.fillRect(-10, -8, 20, 16);
-    ctx.strokeRect(-10, -8, 20, 16);
+    ctx.rotate(-0.28);
+    drawIsoBioCyberBlock(ctx, -11, -10, 22, 18, -4, 4, '#1e293b', '#475569', '#0f172a', '#38bdf8');
+    ctx.fillStyle = '#00e5ff';
+    ctx.fillRect(-7, -6, 12, 2.5);
     ctx.restore();
 
     ctx.save();
     ctx.translate(22, -64);
-    ctx.rotate(0.4);
-    ctx.fillRect(-9, -8, 18, 15);
-    ctx.strokeRect(-9, -8, 18, 15);
+    ctx.rotate(0.32);
+    drawIsoBioCyberBlock(ctx, -10, -9, 20, 17, 4, 4, '#1e293b', '#475569', '#0f172a', '#f43f5e');
+    ctx.fillStyle = '#ff1744';
+    ctx.fillRect(-6, -5, 11, 2.5);
     ctx.restore();
 
-    // Gaping Biomechanical Fang Maw at y = -34 facing player!
+    // Mechanical Hydraulic Shredder Jaw at y = -32
     const mawX = dir * 12;
     ctx.fillStyle = '#09020d';
-    ctx.strokeStyle = '#e11d48';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#ff1744';
+    ctx.lineWidth = 2.2;
     ctx.beginPath();
-    ctx.ellipse(mawX, -32, 16, 11, 0, 0, Math.PI * 2);
+    ctx.ellipse(mawX, -32, 17, 11, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    // Jagged chrome teeth inside maw
     ctx.fillStyle = '#e2e8f0';
     for (let f = -10; f <= 10; f += 5) {
       ctx.beginPath();
@@ -267,7 +322,6 @@ export function drawEldritchEnemyBody25D(
       ctx.lineTo(mawX + f, -35);
       ctx.lineTo(mawX + f + 2, -41);
       ctx.fill();
-
       ctx.beginPath();
       ctx.moveTo(mawX + f - 2, -23);
       ctx.lineTo(mawX + f, -29);
@@ -275,95 +329,117 @@ export function drawEldritchEnemyBody25D(
       ctx.fill();
     }
 
-    // Cluster of 6 Bubbling Crimson-Gold Eyes across upper mass
     const eyes = [
       { x: -14, y: -56, rx: 6.5, ry: 4.5 },
       { x: 12, y: -58, rx: 7, ry: 4.8 },
       { x: -2, y: -70, rx: 5.5, ry: 4 },
       { x: -24, y: -44, rx: 4.5, ry: 3.2 },
       { x: 23, y: -46, rx: 4.8, ry: 3.5 },
-      { x: 0, y: -50, rx: 4.2, ry: 3 },
     ];
     eyes.forEach((ey, idx) =>
       drawAbyssalSlitEye(ctx, ey.x, ey.y, ey.rx, ey.ry, chargingEyes, timeSec, idx * 0.9)
     );
     ctx.restore();
-    return 90;
+    return 92;
   }
 
-  // 3. CTHULHU_LEVIATHAN_PRIME: Towering 112px Winged Cephalopod Overmind Dreadnought!
+  // 3. WORLD BOSS: CTHULHU_LEVIATHAN_PRIME (3D Cyber-Cephalopod Dreadnought Overmind)
   ctx.save();
   const wingFlap = Math.sin(timeSec * 5.2) * 8;
 
-  // Tattered Biomechanical Cable-Membrane Bat Wings (Left & Right)
+  // Cyber-Wing Struts & Plasma Membranes
   for (const wSide of [-1, 1]) {
-    ctx.fillStyle = hitFlash ? '#ffffff' : 'rgba(59, 7, 100, 0.88)';
+    ctx.fillStyle = hitFlash ? '#ffffff' : 'rgba(59, 7, 100, 0.9)';
     ctx.strokeStyle = '#ff1744';
     ctx.lineWidth = 2.2;
     ctx.beginPath();
-    ctx.moveTo(wSide * 14, -68);
-    ctx.quadraticCurveTo(wSide * 54, -104 + wingFlap, wSide * 62, -66 + wingFlap);
-    ctx.lineTo(wSide * 44, -52 + wingFlap * 0.5);
-    ctx.lineTo(wSide * 30, -40);
-    ctx.lineTo(wSide * 16, -46);
+    ctx.moveTo(wSide * 14, -70);
+    ctx.lineTo(wSide * 52, -108 + wingFlap);
+    ctx.lineTo(wSide * 64, -66 + wingFlap);
+    ctx.lineTo(wSide * 44, -50 + wingFlap * 0.4);
+    ctx.lineTo(wSide * 18, -46);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
   }
 
-  // Heavy Biomechanical Pillar Legs + Claws (grounded at y = +8)
-  const stride = Math.sin(timeSec * 6) * 3;
-  ctx.fillStyle = hitFlash ? '#ffffff' : '#1e1b2e';
-  ctx.strokeStyle = '#09040e';
-  ctx.lineWidth = 2.4;
-  ctx.fillRect(-20, -24 + stride, 14, 30);
-  ctx.strokeRect(-20, -24 + stride, 14, 30);
-  ctx.fillRect(6, -24 - stride, 14, 30);
-  ctx.strokeRect(6, -24 - stride, 14, 30);
+  // 3D Armored Mecha Pillar Legs
+  const stride = Math.sin(timeSec * 6) * 3.5;
+  drawIsoBioCyberBlock(
+    ctx,
+    -21,
+    -24 + stride,
+    15,
+    30,
+    -3,
+    3,
+    hitFlash ? '#ffffff' : '#1e1b4b',
+    '#4c1d95',
+    '#09040e'
+  );
+  drawIsoBioCyberBlock(
+    ctx,
+    6,
+    -24 - stride,
+    15,
+    30,
+    3,
+    3,
+    hitFlash ? '#ffffff' : '#1e1b4b',
+    '#4c1d95',
+    '#09040e'
+  );
 
-  // Armored Ribcage Reactor Torso (y = -64 .. -22)
-  ctx.fillStyle = hitFlash ? '#ffffff' : '#261438';
-  ctx.beginPath();
-  ctx.roundRect(-24, -64, 48, 42, 8);
-  ctx.fill();
-  ctx.stroke();
-
-  // Pulsing Crimson Abyssal Core in Chest
+  // 3D Ribbed Reactor Chestplate
+  drawIsoBioCyberBlock(
+    ctx,
+    -25,
+    -66,
+    50,
+    43,
+    -dir * 5,
+    6,
+    hitFlash ? '#ffffff' : '#261438',
+    '#4c1d95',
+    '#140921',
+    '#c026d3'
+  );
   ctx.fillStyle = '#ff1744';
   ctx.beginPath();
-  ctx.arc(0, -44, 9, 0, Math.PI * 2);
+  ctx.arc(0, -45, 9.5, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = '#fde047';
   ctx.beginPath();
-  ctx.arc(0, -44, 4, 0, Math.PI * 2);
+  ctx.arc(0, -45, 4.5, 0, Math.PI * 2);
   ctx.fill();
 
-  // Shoulder Abyssal Bio-Rocket Pod (at x = -dir*18, y = -78)
+  // Shoulder Abyssal Bio-Rocket Pod
   ctx.save();
   ctx.translate(-dir * 18, -78);
   ctx.rotate(facingAngle);
   if (!facingRight) ctx.scale(1, -1);
-  ctx.fillStyle = '#1f122e';
-  ctx.strokeStyle = '#c026d3';
-  ctx.lineWidth = 2;
-  ctx.fillRect(-10, -7, 34, 14);
-  ctx.strokeRect(-10, -7, 34, 14);
+  drawIsoBioCyberBlock(ctx, -10, -7, 34, 14, 0, 3, '#1f122e', '#581c87', '#09040e', '#c026d3');
   ctx.fillStyle = '#ff1744';
   ctx.beginPath();
-  ctx.arc(24, 0, 4, 0, Math.PI * 2);
+  ctx.arc(24, 0, 3.8, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
-  // Cephalopod Cthulhu Head Dome (y = -104 .. -60) + 8 Writhing Face Tentacles!
-  ctx.fillStyle = hitFlash ? '#ffffff' : '#3b0764';
-  ctx.strokeStyle = '#09040e';
-  ctx.lineWidth = 2.6;
-  ctx.beginPath();
-  ctx.ellipse(0, -82, 24, 22, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
+  // 3D Armored Cephalopod Cranial Dome + 8 Segmented Fiber-Optic Tentacles
+  drawIsoBioCyberBlock(
+    ctx,
+    -22,
+    -104,
+    44,
+    36,
+    -dir * 4,
+    6,
+    hitFlash ? '#ffffff' : '#3b0764',
+    '#6b21a8',
+    '#1e1b4b',
+    '#f43f5e'
+  );
 
-  // 8 Writhing Cthulhu Beard/Face Tentacles hanging from y = -66
   ctx.lineCap = 'round';
   for (let ft = -3.5; ft <= 3.5; ft += 1) {
     const fx = ft * 4.8;
@@ -371,35 +447,28 @@ export function drawEldritchEnemyBody25D(
     ctx.strokeStyle = hitFlash ? '#ffffff' : '#581c87';
     ctx.lineWidth = 5;
     ctx.beginPath();
-    ctx.moveTo(fx, -65);
-    ctx.quadraticCurveTo(fx + curl, -52, fx * 1.3 - curl * 0.5, -40);
+    ctx.moveTo(fx, -67);
+    ctx.quadraticCurveTo(fx + curl, -53, fx * 1.3 - curl * 0.5, -40);
     ctx.stroke();
-    ctx.strokeStyle = '#f43f5e';
-    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.3;
     ctx.stroke();
   }
 
-  // 3 Blazing Crimson-Gold Abyssal Eyes on Cthulhu Crown
-  drawAbyssalSlitEye(ctx, -11, -76, 6.2, 4.4, chargingEyes, timeSec, 0.4);
-  drawAbyssalSlitEye(ctx, 11, -76, 6.2, 4.4, chargingEyes, timeSec, 1.2);
-  drawAbyssalSlitEye(ctx, 0, -89, 7.2, 5.0, chargingEyes, timeSec, 2.0);
+  drawAbyssalSlitEye(ctx, -11, -78, 6.2, 4.4, chargingEyes, timeSec, 0.4);
+  drawAbyssalSlitEye(ctx, 11, -78, 6.2, 4.4, chargingEyes, timeSec, 1.2);
+  drawAbyssalSlitEye(ctx, 0, -92, 7.2, 5.0, chargingEyes, timeSec, 2.0);
 
-  // Bio-Mechanical Void Cannon Arm held at x = dir*24, y = -48
+  // 3D Void Singularity Cannon Arm
   ctx.save();
   ctx.translate(dir * 24, -48);
   ctx.rotate(facingAngle);
   if (!facingRight) ctx.scale(1, -1);
-  ctx.fillStyle = '#1e102b';
-  ctx.strokeStyle = '#ff1744';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.roundRect(-6, -6.5, 38, 13, 4);
-  ctx.fill();
-  ctx.stroke();
+  drawIsoBioCyberBlock(ctx, -6, -7, 40, 14, 0, 3.5, '#1e102b', '#4c1d95', '#09040e', '#ff1744');
   ctx.fillStyle = '#c026d3';
-  ctx.fillRect(6, -2.5, 24, 5);
+  ctx.fillRect(6, -2.5, 26, 5);
   ctx.restore();
 
   ctx.restore();
-  return 112;
+  return 116;
 }

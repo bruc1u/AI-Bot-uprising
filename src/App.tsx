@@ -6,10 +6,20 @@ import { EquityTerminalView } from './components/EquityTerminalView';
 import { ItemPreviewArt } from './components/GameIllustrations';
 import { BlackMarketView, CompanionsView, FieldManualView } from './components/SanctuaryPanels';
 import { ASSET_URLS, preloadAllGameSprites } from './game/assetLoader';
+import {
+  ARMOR_CATALOG_CONFIG,
+  DEFAULT_ARMOR_LEVELS,
+  DEFAULT_WEAPON_LEVELS,
+  getArmorUpgradeCostRu9,
+  getWeaponUpgradeCostRu9,
+  STARTER_WEAPON_IDS,
+  WEAPON_CATALOG_CONFIG,
+} from './game/equipmentConfig';
 import { soundFX } from './game/sound';
 import { LANGUAGE_LABELS, TRANSLATIONS } from './i18n/translations';
 import {
   ActiveTab,
+  ArmorId,
   ChainTransaction,
   CompanionKind,
   EquityTicker,
@@ -19,7 +29,7 @@ import {
   WeaponId,
 } from './types/game';
 
-const STORAGE_KEY = 'ai_uprising_core_liquidation_v5';
+const STORAGE_KEY = 'ai_uprising_core_liquidation_v6';
 export const INITIAL_RU9 = 1_000_000;
 
 function spendWithAutoRefill(currentRu9: number, cost: number): { nextRu9: number; refreshed: boolean } {
@@ -33,9 +43,12 @@ function spendWithAutoRefill(currentRu9: number, cost: number): { nextRu9: numbe
 const DEFAULT_PORTFOLIO: PlayerPortfolio = {
   selectedSkin: PlayerSkinId.DEGEN_ASTRO,
   equippedWeapon: WeaponId.PULSE_LASER,
+  equippedArmor: ArmorId.EVA_STANDARD_SUIT,
+  ownedWeapons: [...STARTER_WEAPON_IDS],
+  ownedArmors: [ArmorId.EVA_STANDARD_SUIT],
   ru9: INITIAL_RU9,
-  oCores: 2,
-  aCores: 2,
+  oCores: 3,
+  aCores: 3,
   oaiShares: 0,
   anthShares: 0,
   masterSpheres: 5,
@@ -43,12 +56,8 @@ const DEFAULT_PORTFOLIO: PlayerPortfolio = {
   energyPacks: 2,
   medkits: 2,
   firmwarePatches: 2,
-  weaponLevels: {
-    [WeaponId.ARC_BLADE]: 1,
-    [WeaponId.CHAINSAW_SWORD]: 1,
-    [WeaponId.PULSE_LASER]: 1,
-    [WeaponId.DISRUPTOR_CANNON]: 1,
-  },
+  weaponLevels: { ...DEFAULT_WEAPON_LEVELS },
+  armorLevels: { ...DEFAULT_ARMOR_LEVELS },
   companions: [],
   activeCompanionId: null,
   highestWave: 1,
@@ -66,7 +75,7 @@ function makeTxHash(): string {
 }
 
 export default function App() {
-  const [lang, setLang] = useState<Language>(Language.EN);
+  const [lang, setLang] = useState<Language>(Language.ZH);
   const [activeTab, setActiveTab] = useState<ActiveTab>(ActiveTab.ARENA);
   const [backpackOpen, setBackpackOpen] = useState<boolean>(false);
   const [langMenuOpen, setLangMenuOpen] = useState<boolean>(false);
@@ -79,13 +88,27 @@ export default function App() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
+        const mergedOwnedWeapons = Array.from(
+          new Set([...STARTER_WEAPON_IDS, ...(Array.isArray(parsed.ownedWeapons) ? parsed.ownedWeapons : [])])
+        ) as WeaponId[];
+        const mergedOwnedArmors = Array.from(
+          new Set([ArmorId.EVA_STANDARD_SUIT, ...(Array.isArray(parsed.ownedArmors) ? parsed.ownedArmors : [])])
+        ) as ArmorId[];
+
         return {
           ...DEFAULT_PORTFOLIO,
           ...parsed,
+          ownedWeapons: mergedOwnedWeapons,
+          ownedArmors: mergedOwnedArmors,
+          equippedArmor: parsed.equippedArmor || ArmorId.EVA_STANDARD_SUIT,
           ru9: typeof parsed.ru9 === 'number' && parsed.ru9 > 0 ? parsed.ru9 : INITIAL_RU9,
           weaponLevels: {
-            ...DEFAULT_PORTFOLIO.weaponLevels,
+            ...DEFAULT_WEAPON_LEVELS,
             ...(parsed.weaponLevels || {}),
+          },
+          armorLevels: {
+            ...DEFAULT_ARMOR_LEVELS,
+            ...(parsed.armorLevels || {}),
           },
         };
       }
@@ -95,24 +118,27 @@ export default function App() {
     return DEFAULT_PORTFOLIO;
   });
 
+  // Tokenized Stock Oracle Tickers ($OPENAI & $ANTH — strictly independent of $RU9!)
   const [tickers, setTickers] = useState<EquityTicker[]>([
     {
       symbol: 'OpenAI',
+      tokenTicker: '$OPENAI',
       nameKey: 'oaiEquityName',
       coreType: 'oCore',
-      priceRu9: 84.2,
-      coreToShareRatio: 0.48,
+      navUsd: 168.4,
+      coreToShareRatio: 0.5,
       change24h: 5.14,
-      history: [76.5, 78.2, 77.4, 80.1, 81.9, 80.8, 82.7, 84.2],
+      history: [158.2, 160.5, 159.4, 162.8, 165.1, 164.0, 166.9, 168.4],
     },
     {
       symbol: 'Anthropic',
+      tokenTicker: '$ANTH',
       nameKey: 'anthEquityName',
       coreType: 'aCore',
-      priceRu9: 96.5,
-      coreToShareRatio: 0.52,
+      navUsd: 142.8,
+      coreToShareRatio: 0.55,
       change24h: 3.46,
-      history: [90.4, 91.8, 91.0, 93.2, 94.7, 94.1, 95.3, 96.5],
+      history: [136.4, 138.0, 137.2, 139.5, 140.9, 140.1, 141.6, 142.8],
     },
   ]);
 
@@ -120,7 +146,6 @@ export default function App() {
     preloadAllGameSprites();
   }, []);
 
-  // Guarantee $RU9 automatically refreshes back to 1,000,000 if it ever reaches 0
   useEffect(() => {
     if (portfolio.ru9 <= 0) {
       setPortfolio((prev) => ({ ...prev, ru9: INITIAL_RU9 }));
@@ -135,7 +160,6 @@ export default function App() {
     }
   }, [portfolio]);
 
-  // Close Language dropdown on outside click
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
       if (langMenuRef.current && !langMenuRef.current.contains(e.target as Node)) {
@@ -146,7 +170,6 @@ export default function App() {
     return () => document.removeEventListener('mousedown', onDocClick);
   }, []);
 
-  // Global [B] shortcut when outside Arena (Arena handles its own [B] + auto-pause)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (activeTab !== ActiveTab.ARENA && e.code === 'KeyB') {
@@ -160,22 +183,22 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [activeTab, backpackOpen]);
 
-  // Live synthetic stock fluctuation for OpenAI and Anthropic
+  // Live Oracle Reference NAV fluctuation for $OPENAI and $ANTH Tokenized Stocks
   useEffect(() => {
     const id = window.setInterval(() => {
       setTickers((prev) =>
         prev.map((tk) => {
-          const drift = (Math.random() - 0.48) * 2.6;
-          const nextPrice = Math.max(28, Number((tk.priceRu9 + drift).toFixed(2)));
-          const base = tk.history[0] || nextPrice;
-          const nextChange = Number((((nextPrice - base) / base) * 100).toFixed(2));
-          const nextRatio = Number(Math.max(0.28, Math.min(0.85, 38 / nextPrice)).toFixed(2));
+          const drift = (Math.random() - 0.48) * 2.8;
+          const nextNav = Math.max(45, Number((tk.navUsd + drift).toFixed(2)));
+          const base = tk.history[0] || nextNav;
+          const nextChange = Number((((nextNav - base) / base) * 100).toFixed(2));
+          const nextRatio = Number(Math.max(0.32, Math.min(0.85, 82 / nextNav)).toFixed(2));
           return {
             ...tk,
-            priceRu9: nextPrice,
+            navUsd: nextNav,
             change24h: nextChange,
             coreToShareRatio: nextRatio,
-            history: [...tk.history.slice(-11), nextPrice],
+            history: [...tk.history.slice(-11), nextNav],
           };
         })
       );
@@ -234,16 +257,21 @@ export default function App() {
     []
   );
 
-  // Enforce strict Max 1 Robo-Dog and Max 1 Robo-Cat in roster!
   const handleCompanionCaptured = useCallback((kind: CompanionKind) => {
     setPortfolio((prev) => {
       if (prev.companions.some((c) => c.kind === kind)) {
         return prev;
       }
+      const nicknameMap: Record<CompanionKind, string> = {
+        [CompanionKind.SCOUT_DOG]: 'Scout-Alpha',
+        [CompanionKind.CYBER_CAT]: 'Cyber-Bastet',
+        [CompanionKind.PUMPKIN_SPIRIT]: 'Jack-Pup',
+        [CompanionKind.NIGHT_BAT]: 'Nosferatu-Bit',
+      };
       const newComp = {
         id: `comp-${kind}-${Date.now()}`,
         kind,
-        nickname: kind === CompanionKind.SCOUT_DOG ? 'Scout-Alpha' : 'Cyber-Bastet',
+        nickname: nicknameMap[kind] || 'Cyber-Pet',
         hp: 120,
         maxHp: 120,
         rebelling: false,
@@ -254,6 +282,14 @@ export default function App() {
         companions: [...prev.companions, newComp],
         activeCompanionId: prev.activeCompanionId || newComp.id,
       };
+    });
+  }, []);
+
+  const handleToggleHalloweenHat = useCallback((forceValue?: boolean) => {
+    setPortfolio((prev) => {
+      const nextVal = typeof forceValue === 'boolean' ? forceValue : !prev.halloweenHat;
+      soundFX.playHalloweenChime(true);
+      return { ...prev, halloweenHat: nextVal };
     });
   }, []);
 
@@ -281,30 +317,53 @@ export default function App() {
     });
   }, []);
 
+  // Buy Weapon strictly with $RU9
+  const handleBuyWeapon = useCallback(
+    (weapon: WeaponId) => {
+      const cfg = WEAPON_CATALOG_CONFIG.find((w) => w.id === weapon);
+      if (!cfg) return;
+      setPortfolio((prev) => {
+        if (prev.ownedWeapons.includes(weapon)) return prev;
+        const { nextRu9 } = spendWithAutoRefill(prev.ru9, cfg.buyCostRu9);
+        soundFX.playCaptureResult(true);
+        const tx = appendTx(
+          'BUY WEAPON',
+          `Unlocked ${weapon}`,
+          `-${cfg.buyCostRu9.toLocaleString()} $RU9`,
+          'vibevibe.fun'
+        );
+        return {
+          ...prev,
+          ru9: nextRu9,
+          ownedWeapons: [...prev.ownedWeapons, weapon],
+          equippedWeapon: weapon,
+          txHistory: [tx, ...prev.txHistory.slice(0, 19)],
+        };
+      });
+    },
+    [appendTx]
+  );
+
+  // Upgrade Weapon strictly with $RU9 (ZERO Core requirement!)
   const handleUpgradeWeapon = useCallback(
     (weapon: WeaponId) => {
       setPortfolio((prev) => {
+        if (!prev.ownedWeapons.includes(weapon)) return prev;
         const lvl = prev.weaponLevels[weapon] || 1;
         if (lvl >= 5) return prev;
-        const ru9Cost = 25000 * lvl;
-        const coreCost = lvl;
-        const needsOCore = weapon === WeaponId.ARC_BLADE || weapon === WeaponId.PULSE_LASER;
-        const coreAvailable = needsOCore ? prev.oCores : prev.aCores;
-        if (coreAvailable < coreCost) return prev;
+        const ru9Cost = getWeaponUpgradeCostRu9(weapon, lvl);
 
         const { nextRu9 } = spendWithAutoRefill(prev.ru9, ru9Cost);
         soundFX.playCaptureResult(true);
         const tx = appendTx(
-          'ARMORY UPGRADE',
-          `${weapon} → Tier ${lvl + 1}`,
+          'UPGRADE WEAPON',
+          `${weapon} → Lv.${lvl + 1}`,
           `-${ru9Cost.toLocaleString()} $RU9`,
           'vibevibe.fun'
         );
         return {
           ...prev,
           ru9: nextRu9,
-          oCores: needsOCore ? prev.oCores - coreCost : prev.oCores,
-          aCores: !needsOCore ? prev.aCores - coreCost : prev.aCores,
           weaponLevels: {
             ...prev.weaponLevels,
             [weapon]: lvl + 1,
@@ -316,88 +375,101 @@ export default function App() {
     [appendTx]
   );
 
-  const handleConvertCoreToStock = useCallback(
-    (symbol: 'OpenAI' | 'Anthropic') => {
-      const tk = tickers.find((x) => x.symbol === symbol);
-      if (!tk) return;
-      const isOai = symbol === 'OpenAI';
-
+  // Buy Exo-Armor strictly with $RU9
+  const handleBuyArmor = useCallback(
+    (armor: ArmorId) => {
+      const cfg = ARMOR_CATALOG_CONFIG.find((a) => a.id === armor);
+      if (!cfg) return;
       setPortfolio((prev) => {
-        if (isOai && prev.oCores < 1) return prev;
-        if (!isOai && prev.aCores < 1) return prev;
-        soundFX.playLootPickup(true);
+        if (prev.ownedArmors.includes(armor)) return prev;
+        const { nextRu9 } = spendWithAutoRefill(prev.ru9, cfg.buyCostRu9);
+        soundFX.playCaptureResult(true);
         const tx = appendTx(
-          'MINT EQUITY',
-          `1 ${isOai ? 'OpenAI Core' : 'Anthropic Core'} → ${tk.coreToShareRatio.toFixed(2)} ${symbol}`,
-          `+${tk.coreToShareRatio.toFixed(2)} ${symbol}`,
-          'Robinhood Chain'
-        );
-        return {
-          ...prev,
-          oCores: isOai ? prev.oCores - 1 : prev.oCores,
-          aCores: !isOai ? prev.aCores - 1 : prev.aCores,
-          oaiShares: isOai ? prev.oaiShares + tk.coreToShareRatio : prev.oaiShares,
-          anthShares: !isOai ? prev.anthShares + tk.coreToShareRatio : prev.anthShares,
-          txHistory: [tx, ...prev.txHistory.slice(0, 19)],
-        };
-      });
-    },
-    [appendTx, tickers]
-  );
-
-  const handleSellStockForRu9 = useCallback(
-    (symbol: 'OpenAI' | 'Anthropic') => {
-      const tk = tickers.find((x) => x.symbol === symbol);
-      if (!tk) return;
-      const isOai = symbol === 'OpenAI';
-
-      setPortfolio((prev) => {
-        const held = isOai ? prev.oaiShares : prev.anthShares;
-        if (held < 0.25) return prev;
-        const sellAmt = Math.min(1, held);
-        const payout = Number((sellAmt * tk.priceRu9 * 100).toFixed(0));
-        soundFX.playLootPickup(true);
-        const tx = appendTx(
-          'LIQUIDATE EQUITY',
-          `Liquidated ${sellAmt.toFixed(2)} ${symbol}`,
-          `+${payout.toLocaleString()} $RU9`,
-          'Robinhood Chain'
-        );
-        return {
-          ...prev,
-          ru9: prev.ru9 + payout,
-          oaiShares: isOai ? Math.max(0, prev.oaiShares - sellAmt) : prev.oaiShares,
-          anthShares: !isOai ? Math.max(0, prev.anthShares - sellAmt) : prev.anthShares,
-          txHistory: [tx, ...prev.txHistory.slice(0, 19)],
-        };
-      });
-    },
-    [appendTx, tickers]
-  );
-
-  const handleSmeltCoreToRu9 = useCallback(
-    (coreType: 'oCore' | 'aCore') => {
-      const yieldRu9 = coreType === 'oCore' ? 5000 : 6500;
-      setPortfolio((prev) => {
-        if (coreType === 'oCore' && prev.oCores < 1) return prev;
-        if (coreType === 'aCore' && prev.aCores < 1) return prev;
-        soundFX.playLootPickup(true);
-        const tx = appendTx(
-          'CORE SMELT',
-          `1 ${coreType === 'oCore' ? 'OpenAI Core' : 'Anthropic Core'} smelted`,
-          `+${yieldRu9.toLocaleString()} $RU9`,
+          'BUY EXO-ARMOR',
+          `Unlocked ${armor}`,
+          `-${cfg.buyCostRu9.toLocaleString()} $RU9`,
           'vibevibe.fun'
         );
         return {
           ...prev,
-          ru9: prev.ru9 + yieldRu9,
-          oCores: coreType === 'oCore' ? prev.oCores - 1 : prev.oCores,
-          aCores: coreType === 'aCore' ? prev.aCores - 1 : prev.aCores,
+          ru9: nextRu9,
+          ownedArmors: [...prev.ownedArmors, armor],
+          equippedArmor: armor,
           txHistory: [tx, ...prev.txHistory.slice(0, 19)],
         };
       });
     },
     [appendTx]
+  );
+
+  const handleSelectArmor = useCallback((armor: ArmorId) => {
+    setPortfolio((prev) => {
+      if (!prev.ownedArmors.includes(armor)) return prev;
+      soundFX.playLootPickup(true);
+      return { ...prev, equippedArmor: armor };
+    });
+  }, []);
+
+  // Upgrade Exo-Armor strictly with $RU9 (ZERO Core requirement!)
+  const handleUpgradeArmor = useCallback(
+    (armor: ArmorId) => {
+      setPortfolio((prev) => {
+        if (!prev.ownedArmors.includes(armor)) return prev;
+        const lvl = prev.armorLevels[armor] || 1;
+        if (lvl >= 5) return prev;
+        const ru9Cost = getArmorUpgradeCostRu9(armor, lvl);
+        const { nextRu9 } = spendWithAutoRefill(prev.ru9, ru9Cost);
+        soundFX.playCaptureResult(true);
+        const tx = appendTx(
+          'UPGRADE ARMOR',
+          `${armor} → Lv.${lvl + 1}`,
+          `-${ru9Cost.toLocaleString()} $RU9`,
+          'vibevibe.fun'
+        );
+        return {
+          ...prev,
+          ru9: nextRu9,
+          armorLevels: {
+            ...prev.armorLevels,
+            [armor]: lvl + 1,
+          },
+          txHistory: [tx, ...prev.txHistory.slice(0, 19)],
+        };
+      });
+    },
+    [appendTx]
+  );
+
+  // Redeem OpenAI Core / Anthropic Core EXCLUSIVELY into $OPENAI / $ANTH Tokenized Stocks
+  const handleConvertCoreToStock = useCallback(
+    (symbol: 'OpenAI' | 'Anthropic', mode: 'one' | 'all' = 'one') => {
+      const tk = tickers.find((x) => x.symbol === symbol);
+      if (!tk) return;
+      const isOai = symbol === 'OpenAI';
+
+      setPortfolio((prev) => {
+        const available = isOai ? prev.oCores : prev.aCores;
+        if (available < 1) return prev;
+        const count = mode === 'all' ? available : 1;
+        const mintedTokens = Number((count * tk.coreToShareRatio).toFixed(4));
+        soundFX.playLootPickup(true);
+        const tx = appendTx(
+          'MINT TOKENIZED STOCK',
+          `${count} ${isOai ? 'OpenAI Core' : 'Anthropic Core'} → ${mintedTokens.toFixed(2)} ${tk.tokenTicker}`,
+          `+${mintedTokens.toFixed(2)} ${tk.tokenTicker}`,
+          'Robinhood Chain'
+        );
+        return {
+          ...prev,
+          oCores: isOai ? prev.oCores - count : prev.oCores,
+          aCores: !isOai ? prev.aCores - count : prev.aCores,
+          oaiShares: isOai ? prev.oaiShares + mintedTokens : prev.oaiShares,
+          anthShares: !isOai ? prev.anthShares + mintedTokens : prev.anthShares,
+          txHistory: [tx, ...prev.txHistory.slice(0, 19)],
+        };
+      });
+    },
+    [appendTx, tickers]
   );
 
   const handleRepairCompanion = useCallback((id: string, _purgeRebellion: boolean) => {
@@ -458,10 +530,9 @@ export default function App() {
 
   return (
     <div className="min-h-dvh bg-[#06080f] text-slate-100 flex flex-col">
-      {/* SINGLE COMPACT 40px TOP BAR (Auto-Hides During Active Combat for 100% Fullscreen Arena!) */}
+      {/* SINGLE COMPACT 40px TOP BAR */}
       {!topBarHidden && (
         <header className="h-10 border-b border-slate-800/90 bg-[#090c15] px-2.5 lg:px-4 flex items-center justify-between gap-2 z-30">
-          {/* Brand */}
           <div className="flex items-center gap-2 shrink-0">
             <img
               src={ASSET_URLS.VIBEVIBE_LOGO}
@@ -477,7 +548,6 @@ export default function App() {
             </span>
           </div>
 
-          {/* Single-Line Navigation Links */}
           <nav className="flex items-center gap-1 sm:gap-3.5 overflow-x-auto">
             {navItems.map((item) => {
               const active = activeTab === item.id;
@@ -498,10 +568,9 @@ export default function App() {
             })}
           </nav>
 
-          {/* Compact Inline Asset Balances + Language + Backpack */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <div className="hidden md:flex items-center gap-2.5 text-[11px] font-mono tabular-nums">
-              <span className="inline-flex items-center gap-1">
+            <div className="hidden md:flex items-center gap-2 text-[11px] font-mono tabular-nums">
+              <span className="inline-flex items-center gap-1" title={t.ru9Desc}>
                 <ItemPreviewArt kind="ru9" className="w-4 h-4 shrink-0" />
                 <span className="hidden lg:inline text-slate-400">$RU9</span>
                 <strong className="text-amber-400">
@@ -509,17 +578,24 @@ export default function App() {
                 </strong>
               </span>
               <span className="text-slate-700">·</span>
-              <span className="inline-flex items-center gap-1">
+              <span className="inline-flex items-center gap-1" title={t.oCoreDesc}>
                 <ItemPreviewArt kind="oCore" className="w-4 h-4 shrink-0" />
-                <span className="hidden lg:inline text-slate-300">OpenAI Core</span>
                 <strong className="text-white">{portfolio.oCores}</strong>
               </span>
-              <span className="text-slate-700">·</span>
-              <span className="inline-flex items-center gap-1">
+              <span className="inline-flex items-center gap-1" title={t.aCoreDesc}>
                 <ItemPreviewArt kind="aCore" className="w-4 h-4 shrink-0" />
-                <span className="hidden lg:inline text-slate-300">Anthropic Core</span>
                 <strong className="text-cyan-400">{portfolio.aCores}</strong>
               </span>
+              {(portfolio.oaiShares > 0 || portfolio.anthShares > 0) && (
+                <>
+                  <span className="text-slate-700">·</span>
+                  <span className="hidden xl:inline-flex items-center gap-1.5 text-emerald-400">
+                    <span>$OPENAI {portfolio.oaiShares.toFixed(1)}</span>
+                    <span className="text-slate-600">/</span>
+                    <span className="text-sky-400">$ANTH {portfolio.anthShares.toFixed(1)}</span>
+                  </span>
+                </>
+              )}
             </div>
 
             <div ref={langMenuRef} className="relative">
@@ -587,12 +663,17 @@ export default function App() {
             }}
             onOpenBackpack={() => setBackpackOpen(true)}
             onSelectSkin={(skin) => setPortfolio((p) => ({ ...p, selectedSkin: skin }))}
-            onSelectWeapon={(weapon) => setPortfolio((p) => ({ ...p, equippedWeapon: weapon }))}
+            onSelectWeapon={(weapon) =>
+              setPortfolio((p) =>
+                p.ownedWeapons.includes(weapon) ? { ...p, equippedWeapon: weapon } : p
+              )
+            }
             onUpgradeWeapon={handleUpgradeWeapon}
             onBuySupply={handleBuySupply}
             onLootCollected={handleLootCollected}
             onCompanionCaptured={handleCompanionCaptured}
             onCompanionStateSync={handleCompanionStateSync}
+            onToggleHalloweenHat={handleToggleHalloweenHat}
             onExtractToSanctuary={() => setActiveTab(ActiveTab.TERMINAL)}
           />
         )}
@@ -603,8 +684,16 @@ export default function App() {
               t={t}
               portfolio={portfolio}
               onBuySupply={handleBuySupply}
+              onBuyWeapon={handleBuyWeapon}
               onUpgradeWeapon={handleUpgradeWeapon}
-              onSelectWeapon={(weapon) => setPortfolio((p) => ({ ...p, equippedWeapon: weapon }))}
+              onSelectWeapon={(weapon) =>
+                setPortfolio((p) =>
+                  p.ownedWeapons.includes(weapon) ? { ...p, equippedWeapon: weapon } : p
+                )
+              }
+              onBuyArmor={handleBuyArmor}
+              onUpgradeArmor={handleUpgradeArmor}
+              onSelectArmor={handleSelectArmor}
             />
           </div>
         )}
@@ -616,8 +705,6 @@ export default function App() {
               portfolio={portfolio}
               tickers={tickers}
               onConvertCoreToStock={handleConvertCoreToStock}
-              onSellStockForRu9={handleSellStockForRu9}
-              onSmeltCoreToRu9={handleSmeltCoreToRu9}
             />
           </div>
         )}
@@ -647,12 +734,21 @@ export default function App() {
           portfolio={portfolio}
           onClose={() => setBackpackOpen(false)}
           onSelectSkin={(skin) => setPortfolio((p) => ({ ...p, selectedSkin: skin }))}
-          onSelectWeapon={(weapon) => setPortfolio((p) => ({ ...p, equippedWeapon: weapon }))}
+          onSelectWeapon={(weapon) =>
+            setPortfolio((p) =>
+              p.ownedWeapons.includes(weapon) ? { ...p, equippedWeapon: weapon } : p
+            )
+          }
+          onBuyWeapon={handleBuyWeapon}
           onUpgradeWeapon={handleUpgradeWeapon}
+          onSelectArmor={handleSelectArmor}
+          onBuyArmor={handleBuyArmor}
+          onUpgradeArmor={handleUpgradeArmor}
           onBuySupply={handleBuySupply}
           onUseConsumable={handleBackpackConsumable}
-          onSmeltCore={handleSmeltCoreToRu9}
           onDeployCompanion={(id) => setPortfolio((p) => ({ ...p, activeCompanionId: id }))}
+          onToggleHalloweenHat={() => handleToggleHalloweenHat()}
+          onOpenTerminal={() => setActiveTab(ActiveTab.TERMINAL)}
         />
       )}
     </div>

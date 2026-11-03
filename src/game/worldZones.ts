@@ -13,7 +13,10 @@ export type ContinentLandmarkVariant =
   | 'flesh_hive'
   | 'titan_wreck'
   | 'mech_gantry'
-  | 'tesla_pylon';
+  | 'tesla_pylon'
+  | 'haunted_crypt'
+  | 'witch_cauldron'
+  | 'halloween_glitch_screen';
 
 export interface ObstacleBlock {
   x: number;
@@ -53,6 +56,11 @@ export const OUTDOOR_DIVIDE_X = 2680;
 export const MECHA_WASTELAND_DIVIDE_X = 4680;
 export const PLAYER_SPAWN_X = 1780;
 export const PLAYER_SPAWN_Y = 1840;
+
+export const BLOOD_MOON_ALTARS = [
+  { id: 'altar-hub', x: 2180, y: 1840, radius: 92 },
+  { id: 'altar-abyss', x: 3480, y: 2040, radius: 96 },
+] as const;
 
 export const WORLD_ZONES: ZoneMeta[] = [
   {
@@ -194,46 +202,54 @@ export const FACILITY_PARTITION_WALLS: ObstacleBlock[] = [
 
 export const ROOM_LANDMARK_OBSTACLES: ObstacleBlock[] = [
   // ROOM 1: Central Quantum Command Hub (x: 920..2660, y: 1120..2540)
-  { x: 1470, y: 1620, w: 88, h: 56, heightZ: 74, variant: 'vibevibe_tower' },
-  { x: 2002, y: 1620, w: 88, h: 56, heightZ: 74, variant: 'vibevibe_tower' },
-  { x: 1180, y: 1360, w: 112, h: 58, heightZ: 42, variant: 'crt_desk' },
-  { x: 2260, y: 1360, w: 112, h: 58, heightZ: 42, variant: 'crt_desk' },
-  { x: 1180, y: 2240, w: 88, h: 58, heightZ: 46, variant: 'turret_console' },
-  { x: 2290, y: 2240, w: 88, h: 58, heightZ: 46, variant: 'turret_console' },
+  { x: 1458, y: 1615, w: 104, h: 62, heightZ: 86, variant: 'vibevibe_tower' },
+  { x: 1998, y: 1615, w: 104, h: 62, heightZ: 86, variant: 'vibevibe_tower' },
+  { x: 1160, y: 1350, w: 124, h: 62, heightZ: 56, variant: 'crt_desk' },
+  { x: 2250, y: 1350, w: 124, h: 62, heightZ: 56, variant: 'crt_desk' },
+  { x: 1160, y: 2240, w: 98, h: 62, heightZ: 64, variant: 'turret_console' },
+  { x: 2280, y: 2240, w: 98, h: 62, heightZ: 64, variant: 'turret_console' },
+  // Futuristic Halloween Glitch Screens in Command Hub
+  { x: 1220, y: 1840, w: 128, h: 58, heightZ: 84, variant: 'halloween_glitch_screen' },
+  { x: 2340, y: 1980, w: 128, h: 58, heightZ: 84, variant: 'halloween_glitch_screen' },
 
   // ROOM 2: OpenAI Neural Server Vault (x: 64..1760, y: 88..1100)
-  { x: 260, y: 260, w: 132, h: 64, heightZ: 72, variant: 'server_rack' },
-  { x: 430, y: 260, w: 132, h: 64, heightZ: 72, variant: 'server_rack' },
-  { x: 1180, y: 260, w: 132, h: 64, heightZ: 72, variant: 'server_rack' },
-  { x: 1350, y: 260, w: 132, h: 64, heightZ: 72, variant: 'server_rack' },
-  { x: 840, y: 560, w: 98, h: 74, heightZ: 58, variant: 'keycap_openai' },
-  { x: 290, y: 760, w: 96, h: 74, heightZ: 54, variant: 'keycap_nvda' },
+  { x: 250, y: 260, w: 138, h: 66, heightZ: 82, variant: 'server_rack' },
+  { x: 430, y: 260, w: 138, h: 66, heightZ: 82, variant: 'server_rack' },
+  { x: 1170, y: 260, w: 138, h: 66, heightZ: 82, variant: 'server_rack' },
+  { x: 1350, y: 260, w: 138, h: 66, heightZ: 82, variant: 'server_rack' },
+  { x: 830, y: 550, w: 116, h: 74, heightZ: 74, variant: 'keycap_openai' },
+  { x: 280, y: 760, w: 116, h: 74, heightZ: 72, variant: 'keycap_nvda' },
+  { x: 1460, y: 760, w: 128, h: 58, heightZ: 84, variant: 'halloween_glitch_screen' },
 
   // ROOM 3: Anthropic Robotics Foundry (x: 1798..2660, y: 88..1100)
-  { x: 2020, y: 280, w: 98, h: 74, heightZ: 56, variant: 'keycap_anth' },
-  { x: 2350, y: 280, w: 88, h: 58, heightZ: 48, variant: 'turret_console' },
-  { x: 2160, y: 780, w: 112, h: 58, heightZ: 44, variant: 'crt_desk' },
+  { x: 2000, y: 280, w: 116, h: 74, heightZ: 74, variant: 'keycap_anth' },
+  { x: 2340, y: 280, w: 98, h: 62, heightZ: 64, variant: 'turret_console' },
+  { x: 2140, y: 780, w: 124, h: 62, heightZ: 56, variant: 'crt_desk' },
+  { x: 1860, y: 860, w: 126, h: 58, heightZ: 84, variant: 'halloween_glitch_screen' },
 
   // ROOM 4: Bio-Cryo Containment Lab (x: 64..900, y: 1138..2540)
-  { x: 240, y: 1340, w: 102, h: 70, heightZ: 78, variant: 'cryo_core' },
-  { x: 560, y: 1340, w: 102, h: 70, heightZ: 78, variant: 'cryo_core' },
-  { x: 240, y: 2140, w: 102, h: 70, heightZ: 78, variant: 'cryo_core' },
-  { x: 560, y: 2140, w: 112, h: 58, heightZ: 42, variant: 'crt_desk' },
+  { x: 230, y: 1340, w: 106, h: 72, heightZ: 84, variant: 'cryo_core' },
+  { x: 560, y: 1340, w: 106, h: 72, heightZ: 84, variant: 'cryo_core' },
+  { x: 230, y: 2140, w: 106, h: 72, heightZ: 84, variant: 'cryo_core' },
+  { x: 550, y: 2140, w: 124, h: 62, heightZ: 56, variant: 'crt_desk' },
+  { x: 220, y: 1740, w: 126, h: 58, heightZ: 84, variant: 'halloween_glitch_screen' },
 
   // ROOM 5: Heavy Ordnance Hangar (x: 64..2660, y: 2578..3520)
-  { x: 420, y: 2940, w: 96, h: 74, heightZ: 56, variant: 'keycap_spacex' },
-  { x: 1160, y: 2840, w: 132, h: 64, heightZ: 68, variant: 'server_rack' },
-  { x: 1160, y: 3220, w: 88, h: 58, heightZ: 46, variant: 'turret_console' },
-  { x: 2220, y: 2840, w: 102, h: 70, heightZ: 76, variant: 'cryo_core' },
-  { x: 2220, y: 3240, w: 88, h: 58, heightZ: 46, variant: 'turret_console' },
+  { x: 400, y: 2940, w: 118, h: 74, heightZ: 74, variant: 'keycap_spacex' },
+  { x: 1150, y: 2840, w: 138, h: 66, heightZ: 80, variant: 'server_rack' },
+  { x: 1150, y: 3220, w: 98, h: 62, heightZ: 64, variant: 'turret_console' },
+  { x: 2220, y: 2840, w: 106, h: 72, heightZ: 82, variant: 'cryo_core' },
+  { x: 2220, y: 3240, w: 98, h: 62, heightZ: 64, variant: 'turret_console' },
+  { x: 1580, y: 3040, w: 132, h: 58, heightZ: 86, variant: 'halloween_glitch_screen' },
 
   // ROOM 6: South Chimera Splicing Lab (x: 64..2660, y: 3558..4510)
-  { x: 340, y: 3860, w: 102, h: 70, heightZ: 80, variant: 'cryo_core' },
-  { x: 340, y: 4220, w: 126, h: 86, heightZ: 78, variant: 'flesh_hive' },
-  { x: 1280, y: 3960, w: 112, h: 58, heightZ: 46, variant: 'crt_desk' },
-  { x: 1460, y: 3960, w: 102, h: 70, heightZ: 80, variant: 'cryo_core' },
-  { x: 2240, y: 3840, w: 132, h: 64, heightZ: 72, variant: 'server_rack' },
-  { x: 2240, y: 4240, w: 88, h: 58, heightZ: 48, variant: 'turret_console' },
+  { x: 330, y: 3860, w: 106, h: 72, heightZ: 84, variant: 'cryo_core' },
+  { x: 330, y: 4220, w: 128, h: 86, heightZ: 82, variant: 'flesh_hive' },
+  { x: 1260, y: 3960, w: 124, h: 62, heightZ: 56, variant: 'crt_desk' },
+  { x: 1460, y: 3960, w: 106, h: 72, heightZ: 84, variant: 'cryo_core' },
+  { x: 2240, y: 3840, w: 138, h: 66, heightZ: 82, variant: 'server_rack' },
+  { x: 2240, y: 4240, w: 98, h: 62, heightZ: 64, variant: 'turret_console' },
+  { x: 1840, y: 4220, w: 132, h: 58, heightZ: 86, variant: 'halloween_glitch_screen' },
 
   // OUTDOOR ZONE 1: Cthulhu Bio-Cyber Forbidden Wastes (x: 2720..4640, y: 88..4510)
   { x: 3140, y: 480, w: 106, h: 76, heightZ: 96, variant: 'eldritch_obelisk' },
@@ -245,6 +261,8 @@ export const ROOM_LANDMARK_OBSTACLES: ObstacleBlock[] = [
   { x: 3420, y: 3480, w: 128, h: 86, heightZ: 82, variant: 'flesh_hive' },
   { x: 4280, y: 3680, w: 112, h: 80, heightZ: 104, variant: 'eldritch_obelisk' },
   { x: 3180, y: 4160, w: 108, h: 76, heightZ: 98, variant: 'eldritch_obelisk' },
+  { x: 2920, y: 2180, w: 134, h: 60, heightZ: 88, variant: 'halloween_glitch_screen' },
+  { x: 3980, y: 1160, w: 134, h: 60, heightZ: 88, variant: 'halloween_glitch_screen' },
 
   // OUTDOOR ZONE 2 (OPEN WORLD): Mutated Giant Mecha Wasteland & Titan Graveyard (x: 4720..7080, y: 88..4510)
   { x: 5060, y: 520, w: 168, h: 96, heightZ: 88, variant: 'titan_wreck' },
@@ -265,6 +283,16 @@ export const ROOM_LANDMARK_OBSTACLES: ObstacleBlock[] = [
 
   { x: 5020, y: 4160, w: 86, h: 68, heightZ: 112, variant: 'tesla_pylon' },
   { x: 5880, y: 4180, w: 172, h: 98, heightZ: 90, variant: 'titan_wreck' },
+  { x: 5560, y: 1340, w: 136, h: 60, heightZ: 88, variant: 'halloween_glitch_screen' },
+  { x: 6320, y: 2980, w: 136, h: 60, heightZ: 88, variant: 'halloween_glitch_screen' },
+
+  // HALLOWEEN CORRUPTED SERVER CRYPTS & BIO-REACTOR CAULDRONS ACROSS BIOMES
+  { x: 1520, y: 2140, w: 92, h: 68, heightZ: 72, variant: 'witch_cauldron' },
+  { x: 640, y: 820, w: 98, h: 68, heightZ: 86, variant: 'haunted_crypt' },
+  { x: 760, y: 3960, w: 92, h: 68, heightZ: 72, variant: 'witch_cauldron' },
+  { x: 2920, y: 1220, w: 98, h: 68, heightZ: 86, variant: 'haunted_crypt' },
+  { x: 3740, y: 2220, w: 92, h: 68, heightZ: 72, variant: 'witch_cauldron' },
+  { x: 5440, y: 2040, w: 98, h: 68, heightZ: 86, variant: 'haunted_crypt' },
 ];
 
 export const ARENA_OBSTACLES: ObstacleBlock[] = [

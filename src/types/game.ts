@@ -125,9 +125,9 @@ export interface TouchControlSettings {
 
 export const DEFAULT_TOUCH_SETTINGS: TouchControlSettings = {
   joystickMode: 'floating',
-  fireMode: 'tap_to_shoot',
-  joystickScale: 1.0,
-  buttonScale: 1.0,
+  fireMode: 'joystick',
+  joystickScale: 1.05,
+  buttonScale: 1.2,
   quickSwapWheelEnabled: true,
   leftHanded: false,
 };

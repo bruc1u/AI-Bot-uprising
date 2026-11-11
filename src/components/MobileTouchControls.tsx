@@ -66,7 +66,15 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
     if (touchSettings) return touchSettings;
     try {
       const saved = localStorage.getItem(TOUCH_SETTINGS_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...DEFAULT_TOUCH_SETTINGS,
+          ...parsed,
+          fireMode: 'joystick',
+          buttonScale: Math.max(1.15, parsed.buttonScale || 1.2),
+        };
+      }
     } catch {
       // ignore
     }
@@ -329,7 +337,8 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
     const dx = clientX - cx;
     const dy = clientY - cy;
     const dist = Math.hypot(dx, dy);
-    const clamped = Math.min(MAX_RADIUS, dist);
+    const fireRadius = 38 * (settings.buttonScale || 1.2);
+    const clamped = Math.min(fireRadius, dist);
     const ang = Math.atan2(dy, dx);
     const kx = dist > 2 ? Math.cos(ang) * clamped : 0;
     const ky = dist > 2 ? Math.sin(ang) * clamped : 0;
@@ -339,7 +348,7 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
     s.touchAimActive = true;
     s.mouseDown = true;
 
-    if (dist > 8) {
+    if (dist > 10) {
       s.aimAngle = ang;
       s.facingRight = Math.cos(ang) >= 0;
     } else {
@@ -379,7 +388,7 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
   }
 
   const isLeftHanded = settings.leftHanded;
-  const btnScale = settings.buttonScale || 1.0;
+  const btnScale = settings.buttonScale || 1.2;
   const currentWeaponMeta = WEAPON_CATALOG_CONFIG.find((w) => w.id === equippedWeapon);
 
   return (
@@ -552,7 +561,7 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
           }`}
         />
       ) : settings.fireMode === 'joystick' ? (
-        /* RIGHT AIM JOYSTICK */
+        /* ENLARGED RIGHT FIRE & AIM JOYSTICK */
         <div
           ref={fixedFireZoneRef}
           onPointerDown={(e) => {
@@ -577,24 +586,33 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
             }
           }}
           style={{
-            width: `${76 * settings.joystickScale}px`,
-            height: `${76 * settings.joystickScale}px`,
+            width: `${Math.round(88 * btnScale)}px`,
+            height: `${Math.round(88 * btnScale)}px`,
           }}
-          className={`pointer-events-auto touch-none absolute bottom-3 z-20 rounded-full border border-rose-500/50 bg-[#160a12]/40 flex items-center justify-center transition-opacity ${
-            isLeftHanded ? 'left-3' : 'right-3'
-          } ${rightKnob.active ? 'opacity-95' : 'opacity-55 hover:opacity-85'}`}
+          className={`pointer-events-auto touch-none absolute bottom-2.5 z-20 rounded-full border-2 border-rose-500/60 bg-[#160a12]/50 backdrop-blur-[2px] flex items-center justify-center transition-all ${
+            isLeftHanded ? 'left-2.5' : 'right-2.5'
+          } ${rightKnob.active ? 'opacity-100 ring-2 ring-rose-500/50 scale-[1.02]' : 'opacity-70 hover:opacity-90'}`}
         >
+          {/* Subtle concentric targeting ring */}
+          <div className="pointer-events-none absolute w-[72%] h-[72%] rounded-full border border-dashed border-rose-500/35" />
+
+          {/* Large prominent FIRE knob */}
           <div
-            className={`pointer-events-none w-9 h-9 rounded-full border flex items-center justify-center transition-transform duration-75 ${
+            className={`pointer-events-none rounded-full border-2 flex flex-col items-center justify-center transition-transform duration-75 shadow-lg select-none ${
               rightKnob.active
-                ? 'bg-rose-500/50 border-rose-200'
-                : 'bg-slate-900/70 border-rose-500/65'
+                ? 'bg-rose-600/85 border-rose-200 text-white shadow-rose-600/50'
+                : 'bg-rose-950/75 border-rose-400 text-rose-200'
             }`}
             style={{
+              width: `${Math.round(48 * btnScale)}px`,
+              height: `${Math.round(48 * btnScale)}px`,
               transform: `translate(${rightKnob.x}px, ${rightKnob.y}px)`,
             }}
           >
-            <Crosshair className="w-3.5 h-3.5 text-rose-200" />
+            <Crosshair className="w-3.5 h-3.5 mb-0.5 stroke-[2.5]" />
+            <span className="text-[9px] font-mono font-black tracking-widest leading-none">
+              FIRE
+            </span>
           </div>
         </div>
       ) : (
@@ -623,8 +641,8 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
             }
           }}
           style={{
-            width: `${56 * btnScale}px`,
-            height: `${56 * btnScale}px`,
+            width: `${58 * btnScale}px`,
+            height: `${58 * btnScale}px`,
           }}
           className={`pointer-events-auto touch-none absolute bottom-3 z-20 rounded-full border-2 border-rose-500/80 bg-rose-950/65 active:bg-rose-600/80 active:scale-95 text-rose-100 flex flex-col items-center justify-center shadow-lg transition-transform ${
             isLeftHanded ? 'left-4' : 'right-4'
@@ -641,10 +659,10 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
           isLeftHanded
             ? settings.fireMode === 'tap_to_shoot'
               ? 'left-3'
-              : 'left-[92px]'
+              : 'left-[108px]'
             : settings.fireMode === 'tap_to_shoot'
             ? 'right-3'
-            : 'right-[92px]'
+            : 'right-[108px]'
         }`}
       >
         {/* CONTROL SETTINGS GEAR BUTTON */}

@@ -74,14 +74,43 @@ function makeTxHash(): string {
   return out;
 }
 
+const LANG_STORAGE_KEY = 'ai_uprising_lang_pref';
+
 export default function App() {
-  const [lang, setLang] = useState<Language>(Language.ZH);
+  const [lang, setLang] = useState<Language>(() => {
+    try {
+      const saved = localStorage.getItem(LANG_STORAGE_KEY);
+      if (saved && Object.values(Language).includes(saved as Language)) {
+        return saved as Language;
+      }
+    } catch {
+      // ignore
+    }
+    return Language.EN; // Default to English upon entering as requested!
+  });
   const [activeTab, setActiveTab] = useState<ActiveTab>(ActiveTab.ARENA);
   const [backpackOpen, setBackpackOpen] = useState<boolean>(false);
   const [langMenuOpen, setLangMenuOpen] = useState<boolean>(false);
   const [arenaPlaying, setArenaPlaying] = useState<boolean>(false);
   const [forceShowTopBar, setForceShowTopBar] = useState<boolean>(false);
   const langMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const handleSelectLanguage = useCallback((newLang: Language) => {
+    setLang(newLang);
+    try {
+      localStorage.setItem(LANG_STORAGE_KEY, newLang);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleToggleTopBar = useCallback(() => {
+    setForceShowTopBar((prev) => !prev);
+  }, []);
+
+  const handlePlayingStateChange = useCallback((playing: boolean) => {
+    setArenaPlaying(playing);
+  }, []);
 
   const [portfolio, setPortfolio] = useState<PlayerPortfolio>(() => {
     try {
@@ -532,7 +561,7 @@ export default function App() {
     <div className="min-h-dvh bg-[#06080f] text-slate-100 flex flex-col">
       {/* SINGLE COMPACT 40px TOP BAR */}
       {!topBarHidden && (
-        <header className="h-10 border-b border-slate-800/90 bg-[#090c15] px-2.5 lg:px-4 flex items-center justify-between gap-2 z-30">
+        <header className="h-10 border-b border-slate-800/90 bg-[#090c15] px-2.5 lg:px-4 flex items-center justify-between gap-2 z-[100] relative">
           <div className="flex items-center gap-2 shrink-0">
             <img
               src={ASSET_URLS.VIBEVIBE_LOGO}
@@ -610,7 +639,7 @@ export default function App() {
               </button>
 
               {langMenuOpen && (
-                <div className="absolute right-0 mt-1 w-40 rounded-lg bg-[#0e1320] border border-slate-700 shadow-xl py-1 z-50">
+                <div className="absolute right-0 mt-1 w-40 rounded-lg bg-[#0e1320] border border-slate-700 shadow-2xl py-1 z-[120]">
                   {(Object.keys(LANGUAGE_LABELS) as Language[]).map((code) => {
                     const selected = code === lang;
                     return (
@@ -618,7 +647,7 @@ export default function App() {
                         key={code}
                         type="button"
                         onClick={() => {
-                          setLang(code);
+                          handleSelectLanguage(code);
                           setLangMenuOpen(false);
                         }}
                         className={`w-full px-3 py-1.5 text-left text-xs flex items-center justify-between transition-colors ${
@@ -653,14 +682,13 @@ export default function App() {
         {activeTab === ActiveTab.ARENA && (
           <CombatArena
             t={t}
+            lang={lang}
+            onSelectLanguage={handleSelectLanguage}
             portfolio={portfolio}
             isBackpackOpen={backpackOpen}
             topBarHidden={topBarHidden}
-            onToggleTopBar={() => setForceShowTopBar((v) => !v)}
-            onPlayingStateChange={(playing) => {
-              setArenaPlaying(playing);
-              if (playing) setForceShowTopBar(false);
-            }}
+            onToggleTopBar={handleToggleTopBar}
+            onPlayingStateChange={handlePlayingStateChange}
             onOpenBackpack={() => setBackpackOpen(true)}
             onSelectSkin={(skin) => setPortfolio((p) => ({ ...p, selectedSkin: skin }))}
             onSelectWeapon={(weapon) =>

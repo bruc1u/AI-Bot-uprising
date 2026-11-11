@@ -4,6 +4,7 @@ import {
   ArrowUp,
   Backpack,
   Gamepad2,
+  Globe,
   Heart,
   LayoutGrid,
   Map as MapIcon,
@@ -51,12 +52,13 @@ import { isMechaOrChimeraKind, isWorldBossKind } from '../game/mechChimeraSprite
 import { ActiveBossHudState, findLockedTarget, stepCombatPhysics } from '../game/physicsTick';
 import { soundFX } from '../game/sound';
 import { FACILITY_PARTITION_WALLS, getZoneAt } from '../game/worldZones';
-import { TranslationStrings } from '../i18n/translations';
+import { LANGUAGE_LABELS, TranslationStrings } from '../i18n/translations';
 import {
   CompanionKind,
   DEFAULT_TOUCH_SETTINGS,
   EnemyKind,
   GameState,
+  Language,
   PlayerPortfolio,
   PlayerSkinId,
   TOUCH_SETTINGS_STORAGE_KEY,
@@ -68,6 +70,8 @@ import { MobileTouchControls } from './MobileTouchControls';
 
 interface CombatArenaProps {
   t: TranslationStrings;
+  lang?: Language;
+  onSelectLanguage?: (lang: Language) => void;
   portfolio: PlayerPortfolio;
   isBackpackOpen: boolean;
   topBarHidden: boolean;
@@ -111,6 +115,8 @@ function createZeroSyncMap(): Record<WeaponId, number> {
 
 export const CombatArena: React.FC<CombatArenaProps> = ({
   t,
+  lang,
+  onSelectLanguage,
   portfolio,
   isBackpackOpen,
   topBarHidden,
@@ -1468,6 +1474,34 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
                 {t.extractSanctuary}
               </button>
             </div>
+
+            {onSelectLanguage && (
+              <div className="mt-4 pt-3.5 border-t border-slate-800/90 flex flex-col items-center gap-2">
+                <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5 text-cyan-400" />
+                  {t.languageMenu}
+                </span>
+                <div className="flex items-center justify-center gap-1.5 flex-wrap w-full">
+                  {(Object.keys(LANGUAGE_LABELS) as Language[]).map((code) => {
+                    const isSelected = lang === code;
+                    return (
+                      <button
+                        key={code}
+                        type="button"
+                        onClick={() => onSelectLanguage(code)}
+                        className={`px-2.5 py-1 rounded text-xs font-mono transition-all ${
+                          isSelected
+                            ? 'bg-rose-600 text-white font-bold shadow-md shadow-rose-600/30'
+                            : 'bg-slate-900 border border-slate-700/80 text-slate-300 hover:text-white hover:bg-slate-800'
+                        }`}
+                      >
+                        {LANGUAGE_LABELS[code]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

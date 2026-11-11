@@ -114,6 +114,26 @@ export interface ChainTransaction {
 export type WeaponLevels = Record<WeaponId, number>;
 export type ArmorLevels = Record<ArmorId, number>;
 
+export interface TouchControlSettings {
+  joystickMode: 'floating' | 'fixed';
+  fireMode: 'tap_to_shoot' | 'joystick' | 'auto_aim_button';
+  joystickScale: number; // 0.8 to 1.4
+  buttonScale: number; // 0.8 to 1.4
+  quickSwapWheelEnabled: boolean;
+  leftHanded: boolean;
+}
+
+export const DEFAULT_TOUCH_SETTINGS: TouchControlSettings = {
+  joystickMode: 'floating',
+  fireMode: 'tap_to_shoot',
+  joystickScale: 1.0,
+  buttonScale: 1.0,
+  quickSwapWheelEnabled: true,
+  leftHanded: false,
+};
+
+export const TOUCH_SETTINGS_STORAGE_KEY = 'ai_uprising_touch_settings_v1';
+
 export interface PlayerPortfolio {
   selectedSkin: PlayerSkinId;
   equippedWeapon: WeaponId;

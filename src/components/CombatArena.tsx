@@ -12,6 +12,7 @@ import {
   RotateCcw,
   Shield,
   Skull,
+  Sliders,
   Terminal,
   Volume2,
   VolumeX,
@@ -53,10 +54,13 @@ import { FACILITY_PARTITION_WALLS, getZoneAt } from '../game/worldZones';
 import { TranslationStrings } from '../i18n/translations';
 import {
   CompanionKind,
+  DEFAULT_TOUCH_SETTINGS,
   EnemyKind,
   GameState,
   PlayerPortfolio,
   PlayerSkinId,
+  TOUCH_SETTINGS_STORAGE_KEY,
+  TouchControlSettings,
   WeaponId,
 } from '../types/game';
 import { getCompanionIconKind, ItemPreviewArt, WeaponPreviewArt } from './GameIllustrations';
@@ -146,6 +150,18 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
   const [activeBoss, setActiveBoss] = useState<ActiveBossHudState | null>(null);
   const lastBossSignatureRef = useRef<string>('');
   const [forceTouchPad, setForceTouchPad] = useState<boolean>(false);
+  const [touchSettings, setTouchSettings] = useState<TouchControlSettings>(() => {
+    try {
+      const raw = localStorage.getItem(TOUCH_SETTINGS_STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {
+      // ignore
+    }
+    return DEFAULT_TOUCH_SETTINGS;
+  });
+  const [isControlsSettingsOpen, setIsControlsSettingsOpen] = useState<boolean>(false);
+  const lastWheelTimeRef = useRef<number>(0);
+  const hotbarTouchStartX = useRef<number | null>(null);
 
   const [showRadar, setShowRadar] = useState<boolean>(false);
   const showRadarRef = useRef<boolean>(false);
@@ -305,6 +321,29 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
       }
     },
     [onSelectWeapon]
+  );
+
+  const cycleWeapon = useCallback(
+    (direction: 1 | -1) => {
+      const owned = portfolioRef.current.ownedWeapons;
+      if (owned.length <= 1) return;
+      const currentW = simRef.current.weapon;
+      const curIdx = owned.indexOf(currentW);
+      const nextIdx = (curIdx + direction + owned.length) % owned.length;
+      switchWeapon(owned[nextIdx]);
+    },
+    [switchWeapon]
+  );
+
+  const handleCanvasWheel = useCallback(
+    (e: React.WheelEvent<HTMLCanvasElement>) => {
+      if (gameStateRef.current !== GameState.PLAYING) return;
+      const now = Date.now();
+      if (now - lastWheelTimeRef.current < 110) return;
+      lastWheelTimeRef.current = now;
+      cycleWeapon(e.deltaY > 0 ? 1 : -1);
+    },
+    [cycleWeapon]
   );
 
   const triggerDash = useCallback(() => {
@@ -916,6 +955,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
             simRef.current.mouseDown = false;
           }
         }}
+        onWheel={handleCanvasWheel}
         className="block w-full h-full cursor-crosshair touch-none"
       />
 
@@ -1053,6 +1093,19 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
 
           <button
             type="button"
+            onClick={() => setIsControlsSettingsOpen(true)}
+            title={t.controlSettingsBtn}
+            className={`h-7 w-7 inline-flex items-center justify-center rounded-md border transition-colors ${
+              isControlsSettingsOpen
+                ? 'bg-cyan-950/90 border-cyan-400 text-cyan-300'
+                : 'bg-[#090d16]/75 border-slate-700/80 text-slate-300 hover:text-white'
+            }`}
+          >
+            <Sliders className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            type="button"
             onClick={() => setForceTouchPad((v) => !v)}
             title={t.touchControlsLabel}
             className={`h-7 w-7 inline-flex items-center justify-center rounded-md border transition-colors ${
@@ -1139,7 +1192,7 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
         )}
       </div>
 
-      {/* MOBILE LANDSCAPE TRANSLUCENT CORNER STICKS */}
+      {/* MOBILE LANDSCAPE TRANSLUCENT CONTROLS */}
       {gameState === GameState.PLAYING && (
         <MobileTouchControls
           t={t}
@@ -1147,11 +1200,41 @@ export const CombatArena: React.FC<CombatArenaProps> = ({
           dashReady={dashReady}
           forceVisible={forceTouchPad}
           onTriggerDash={triggerDash}
+          canvasRef={canvasRef}
+          ownedWeapons={portfolio.ownedWeapons}
+          equippedWeapon={portfolio.equippedWeapon}
+          onSelectWeapon={switchWeapon}
+          onCycleWeapon={cycleWeapon}
+          touchSettings={touchSettings}
+          onUpdateTouchSettings={(next) => {
+            setTouchSettings(next);
+            try {
+              localStorage.setItem(TOUCH_SETTINGS_STORAGE_KEY, JSON.stringify(next));
+            } catch {
+              // ignore
+            }
+          }}
+          isSettingsOpen={isControlsSettingsOpen}
+          onToggleSettings={setIsControlsSettingsOpen}
         />
       )}
 
       {/* UNIFIED ULTRA-COMPACT BOTTOM-CENTER HOTBAR (Owned Weapons [1-8] + Items [G/H/R/F] + Backpack [B]) */}
-      <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-[#090d16]/78 border border-slate-700/75 rounded-lg p-1 backdrop-blur-sm shadow-lg max-w-[calc(100vw-160px)] overflow-x-auto">
+      <div
+        onTouchStart={(e) => {
+          hotbarTouchStartX.current = e.touches[0].clientX;
+        }}
+        onTouchEnd={(e) => {
+          if (hotbarTouchStartX.current !== null) {
+            const dx = e.changedTouches[0].clientX - hotbarTouchStartX.current;
+            hotbarTouchStartX.current = null;
+            if (Math.abs(dx) > 32) {
+              cycleWeapon(dx > 0 ? -1 : 1);
+            }
+          }
+        }}
+        className="absolute bottom-1.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-[#090d16]/78 border border-slate-700/75 rounded-lg p-1 backdrop-blur-sm shadow-lg max-w-[calc(100vw-160px)] overflow-x-auto"
+      >
         {ownedWeaponSlots.map((w) => {
           const isEquipped = portfolio.equippedWeapon === w.id;
           const lvl = portfolio.weaponLevels[w.id] || 1;

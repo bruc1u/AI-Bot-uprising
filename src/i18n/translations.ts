@@ -44,6 +44,23 @@ export interface TranslationStrings {
   landscapePrompt: string;
   enterLandscapeBtn: string;
   touchControlsLabel: string;
+  controlSettingsBtn: string;
+  controlSettingsTitle: string;
+  joystickModeLabel: string;
+  joystickFloating: string;
+  joystickFixed: string;
+  fireModeLabel: string;
+  fireModeTap: string;
+  fireModeJoystick: string;
+  fireModeAutoAim: string;
+  joystickScaleLabel: string;
+  buttonScaleLabel: string;
+  quickSwapWheelLabel: string;
+  leftHandedLabel: string;
+  resetControlsBtn: string;
+  closeControlsBtn: string;
+  mouseWheelHint: string;
+  quickSwapHint: string;
 
   weaponArcBlade: string;
   weaponArcDesc: string;
@@ -232,7 +249,24 @@ export const TRANSLATIONS: Record<Language, TranslationStrings> = {
     soundOff: 'Muted',
     landscapePrompt: 'Rotate device horizontally for full widescreen combat.',
     enterLandscapeBtn: 'Fullscreen Landscape',
-    touchControlsLabel: 'Touch Pad',
+    touchControlsLabel: 'Touch Controls',
+    controlSettingsBtn: 'Control Settings',
+    controlSettingsTitle: 'Mobile & Combat Controls Setup',
+    joystickModeLabel: 'Move Joystick Style',
+    joystickFloating: 'Dynamic Floating (Touch anywhere on left to move)',
+    joystickFixed: 'Fixed Corner Joystick',
+    fireModeLabel: 'Attack & Firing Mode',
+    fireModeTap: 'Tap-to-Shoot (Touch anywhere on screen to shoot there)',
+    fireModeJoystick: 'Right Aim Joystick (Drag to aim & hold to fire)',
+    fireModeAutoAim: 'Auto-Aim Nearest + Tap Fire Button',
+    joystickScaleLabel: 'Joystick Size',
+    buttonScaleLabel: 'Button Scale',
+    quickSwapWheelLabel: 'Floating Quick-Weapon Wheel / Swipe',
+    leftHandedLabel: 'Left-Handed Mode (Swap Sticks)',
+    resetControlsBtn: 'Reset Defaults',
+    closeControlsBtn: 'Done',
+    mouseWheelHint: 'Scroll Mouse Wheel to cycle weapons (PC)',
+    quickSwapHint: 'Swipe weapon icon or tap floating wheel to swap',
 
     weaponArcBlade: 'High-Frequency Arc Blade',
     weaponArcDesc: 'Armor-shredding plasma blade. Every 3rd strike emits an EMP shockwave that stuns nearby machines.',
@@ -412,7 +446,24 @@ export const TRANSLATIONS: Record<Language, TranslationStrings> = {
     soundOff: 'Sessiz',
     landscapePrompt: 'Tam ekran savaş deneyimi için telefonu yatay çevirin.',
     enterLandscapeBtn: 'Tam Ekran Yatay Mod',
-    touchControlsLabel: 'Dokunmatik',
+    touchControlsLabel: 'Dokunmatik Kontroller',
+    controlSettingsBtn: 'Kontrol Ayarları',
+    controlSettingsTitle: 'Mobil ve Savaş Kontrol Ayarları',
+    joystickModeLabel: 'Hareket Kolu Tarzı',
+    joystickFloating: 'Dinamik Yüzen (Sol tarafta herhangi bir yere dokun)',
+    joystickFixed: 'Sabit Köşe Kolu',
+    fireModeLabel: 'Ateş ve Saldırı Modu',
+    fireModeTap: 'Dokun-Ateş Et (Ekranda dokunulan yöne ateş aç)',
+    fireModeJoystick: 'Sağ Nişan Kolu (Çekerek nişan al ve tutarak ateş et)',
+    fireModeAutoAim: 'En Yakına Otomatik Nişan + Dokunarak Ateş',
+    joystickScaleLabel: 'Hareket Kolu Boyutu',
+    buttonScaleLabel: 'Tuş Boyutu',
+    quickSwapWheelLabel: 'Yüzen Hızlı Silah Çarkı / Kaydırma',
+    leftHandedLabel: 'Sol El Modu (Kolları Değiştir)',
+    resetControlsBtn: 'Varsayılana Sıfırla',
+    closeControlsBtn: 'Tamam',
+    mouseWheelHint: 'Silah değiştirmek için fare tekerleğini kaydırın (PC)',
+    quickSwapHint: 'Silah ikonunu kaydırarak veya çarka basarak hızlı geçiş yapın',
 
     weaponArcBlade: 'Yüksek Frekanslı Ark Bıçağı',
     weaponArcDesc: 'Zırh delici plazma bıçağı. Her 3. vuruş düşmanları sersemleten EMP yayar.',
@@ -592,7 +643,24 @@ export const TRANSLATIONS: Record<Language, TranslationStrings> = {
     soundOff: 'ミュート',
     landscapePrompt: 'スマートフォンを横向きにすると快適に対戦できます。',
     enterLandscapeBtn: '横画面フルスクリーン',
-    touchControlsLabel: 'タッチ操作',
+    touchControlsLabel: 'タッチ操作設定',
+    controlSettingsBtn: '操作設定',
+    controlSettingsTitle: 'モバイル＆戦闘操作カスタム',
+    joystickModeLabel: '移動ジョイスティック方式',
+    joystickFloating: '追従型ダイナミック（画面左側どこでも触れて移動）',
+    joystickFixed: '固定位置スティック',
+    fireModeLabel: '射撃＆攻撃方式',
+    fireModeTap: 'タップ即射撃（画面タップした方向へ直接射撃）',
+    fireModeJoystick: '右照準スティック（ドラッグ照準＆長押し連射）',
+    fireModeAutoAim: '最寄り敵自動ロック＋攻撃ボタン',
+    joystickScaleLabel: 'スティックの大きさ',
+    buttonScaleLabel: 'ボタンの大きさ',
+    quickSwapWheelLabel: 'フローティング高速武器切替ホイール / スワイプ',
+    leftHandedLabel: '左利きモード（スティック左右入替）',
+    resetControlsBtn: '初期設定に戻す',
+    closeControlsBtn: '完了',
+    mouseWheelHint: 'マウスホイールで武器を連続切替（PC）',
+    quickSwapHint: '武器アイコンをスワイプまたはホイールタップで素早く切替',
 
     weaponArcBlade: '高周波アークブレード',
     weaponArcDesc: '装甲貫通プラズマ刀。3撃ごとにEMP衝撃波を放ち敵機をスタンさせる。',
@@ -772,7 +840,24 @@ export const TRANSLATIONS: Record<Language, TranslationStrings> = {
     soundOff: '음소거',
     landscapePrompt: '가로 모드로 회전하면 더 넓은 화면에서 플레이할 수 있습니다.',
     enterLandscapeBtn: '가로 전체화면 모드',
-    touchControlsLabel: '터치 패드',
+    touchControlsLabel: '터치 조작 설정',
+    controlSettingsBtn: '조작 설정',
+    controlSettingsTitle: '모바일 및 전투 조작 설정',
+    joystickModeLabel: '이동 조이스틱 방식',
+    joystickFloating: '다이내믹 플로팅 (화면 왼쪽 어디든 터치하여 이동)',
+    joystickFixed: '고정형 코너 조이스틱',
+    fireModeLabel: '사격 및 공격 모드',
+    fireModeTap: '터치 즉시 사격 (터치한 화면 위치로 바로 발사)',
+    fireModeJoystick: '우측 조준 조이스틱 (드래그 조준 & 누르고 있어 연사)',
+    fireModeAutoAim: '가장 가까운 적 자동 조준 + 발사 버튼',
+    joystickScaleLabel: '조이스틱 크기',
+    buttonScaleLabel: '버튼 크기',
+    quickSwapWheelLabel: '플로팅 퀵 무기 휠 / 스와이프',
+    leftHandedLabel: '왼손잡이 모드 (스틱 좌우 반전)',
+    resetControlsBtn: '기본값 복원',
+    closeControlsBtn: '완료',
+    mouseWheelHint: '마우스 휠 스크롤로 무기 연속 교체 (PC)',
+    quickSwapHint: '무기 아이콘을 밀거나 휠을 눌러 빠르게 교체',
 
     weaponArcBlade: '고주파 아크 블레이드',
     weaponArcDesc: '장갑 파쇄 플라즈마 검. 3타마다 EMP 충격파를 방출해 적을 기절시킵니다.',
@@ -952,7 +1037,24 @@ export const TRANSLATIONS: Record<Language, TranslationStrings> = {
     soundOff: '已静音',
     landscapePrompt: '建议将手机横屏握持，享受完整宽屏视野与双摇杆操作。',
     enterLandscapeBtn: '开启横屏全屏',
-    touchControlsLabel: '触屏摇杆',
+    touchControlsLabel: '触屏按键',
+    controlSettingsBtn: '按键设置',
+    controlSettingsTitle: '手机端与战斗操作按键设置',
+    joystickModeLabel: '左侧移动摇杆模式',
+    joystickFloating: '全屏动态悬浮摇杆（左半屏任意点下自动生成摇杆，拖动永不卡死）',
+    joystickFixed: '固定边角摇杆',
+    fireModeLabel: '攻击与开火模式',
+    fireModeTap: '全屏点哪打哪（点击屏幕任意位置立即朝该方向射击，按住连射）',
+    fireModeJoystick: '右侧专用瞄准摇杆（拖动瞄准，按住开火）',
+    fireModeAutoAim: '自动锁敌最近目标 + 点按开火键',
+    joystickScaleLabel: '移动摇杆尺寸',
+    buttonScaleLabel: '开火/冲刺按键大小',
+    quickSwapWheelLabel: '悬浮快捷切枪转盘 / 滑动切枪',
+    leftHandedLabel: '左右手互换模式',
+    resetControlsBtn: '恢复默认设置',
+    closeControlsBtn: '保存并关闭',
+    mouseWheelHint: '电脑端支持滚动鼠标滚轮随时切枪',
+    quickSwapHint: '左右滑动武器栏或点击快捷转盘秒切枪',
 
     weaponArcBlade: '高频电弧短刀',
     weaponArcDesc: '破甲近战等离子刃。每第3击释放 EMP 脉冲环，震慑周围机械敌群并击碎护盾。',
